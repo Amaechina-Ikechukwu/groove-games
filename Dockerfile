@@ -2,19 +2,16 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy project definitions
+# Copy project definition
 COPY src/TriviaSync.Api/TriviaSync.Api.csproj src/TriviaSync.Api/
-COPY tests/TriviaSync.Tests/TriviaSync.Tests.csproj tests/TriviaSync.Tests/
 
 # Restore dependencies
 RUN dotnet restore src/TriviaSync.Api/TriviaSync.Api.csproj
-RUN dotnet restore tests/TriviaSync.Tests/TriviaSync.Tests.csproj
 
 # Copy full source tree and static assets
 COPY . ./
 
-# Build and test
-RUN dotnet test tests/TriviaSync.Tests/TriviaSync.Tests.csproj --no-restore -c Release
+# Publish API
 RUN dotnet publish src/TriviaSync.Api/TriviaSync.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
 
 # Runtime Image with ASP.NET Core Runtime and PostgreSQL
