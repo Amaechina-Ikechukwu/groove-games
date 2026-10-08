@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Groove - Player Buzzer</title>
-  <link rel="stylesheet" href="/css/style.css?v=3.0">
+  <link rel="stylesheet" href="/css/style.css?v=3.5">
   <style>
     body {
       background: var(--bg-dark);
@@ -324,6 +324,16 @@
         </div>
 
         <div id="playerAuthAlert" style="display: none; margin-bottom: 1rem; padding: 0.75rem 1rem; border-radius: var(--radius-button); font-weight: 700; font-size: 0.85rem; background: rgba(255, 42, 85, 0.15); border: 1px solid var(--tile-red); color: var(--tile-red);"></div>
+
+        <!-- Onboarding Quick Tour Trigger -->
+        <div style="background: rgba(212, 255, 0, 0.08); border: 1px solid var(--border-cyber-active); border-radius: var(--radius-button); padding: 0.75rem 1rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; text-align: left;">
+          <div style="font-size: 0.82rem; color: #fff;">
+            <strong style="color: var(--neon-lime);">FIRST TIME HERE?</strong> Learn how the rapid buzzer & streaks work.
+          </div>
+          <button type="button" onclick="openPlayerOnboarding()" class="btn-cyber btn-lime" style="font-size: 0.75rem; padding: 0.35rem 0.75rem; white-space: nowrap;">
+            HOW TO PLAY
+          </button>
+        </div>
 
         <!-- LOGIN FORM -->
         <form id="playerLoginForm" onsubmit="handlePlayerLogin(event)">
@@ -708,7 +718,7 @@
 
   <!-- SignalR & Client Logic -->
   <script src="/js/lib/signalr.min.js"></script>
-  <script src="/js/audio.js?v=3.0"></script>
-  <script src="/js/player.js?v=3.0"></script>
+  <script src="/js/audio.js?v=3.5"></script>
+  <script src="/js/player.js?v=3.5"></script>
 </body>
 </html>
