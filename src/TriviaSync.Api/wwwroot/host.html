@@ -309,6 +309,24 @@
       box-shadow: var(--shadow-cyber);
       animation: popIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
+
+    @media (max-width: 768px) {
+      .stadium-container {
+        padding: 1rem 0.85rem 3rem 0.85rem;
+      }
+      #hostStageSelect .cyber-card {
+        padding: 1.5rem 1.15rem !important;
+        margin: 0.5rem auto !important;
+      }
+      .mode-toggle-group {
+        flex-direction: column !important;
+        gap: 0.75rem !important;
+      }
+      .modal-card {
+        padding: 1.5rem 1.15rem;
+        max-height: 92vh;
+      }
+    }
   </style>
 </head>
 <body>
@@ -355,7 +373,7 @@
         </p>
 
         <!-- Mode Toggle: Single vs Multi-Session -->
-        <div style="display: flex; gap: 1rem; margin-bottom: 1.75rem;">
+        <div class="mode-toggle-group" style="display: flex; gap: 1rem; margin-bottom: 1.75rem;">
           <label style="flex: 1; padding: 1.25rem; background: var(--bg-surface-elevated); border: 2px solid var(--neon-lime); border-radius: var(--radius-button); cursor: pointer; display: flex; align-items: center; gap: 0.75rem;">
             <input type="radio" name="sessionMode" id="modeSingle" value="Single" checked onchange="toggleSessionMode()" style="accent-color: var(--neon-lime); transform: scale(1.3);">
             <div>

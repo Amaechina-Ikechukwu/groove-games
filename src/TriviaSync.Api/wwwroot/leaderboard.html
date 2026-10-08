@@ -142,14 +142,41 @@
     }
 
     @media (max-width: 768px) {
+      .leaderboard-viewport {
+        padding: 1.25rem 0.85rem 4rem 0.85rem;
+      }
       .podium-showcase {
-        gap: 0.5rem;
+        gap: 0.35rem;
+        margin: 1.25rem 0 1.75rem 0;
+        min-height: 160px;
+      }
+      .podium-1 .podium-pillar {
+        height: 125px;
+        padding: 0.75rem 0.35rem;
+      }
+      .podium-2 .podium-pillar {
+        height: 95px;
+        padding: 0.75rem 0.35rem;
+      }
+      .podium-3 .podium-pillar {
+        height: 75px;
+        padding: 0.75rem 0.35rem;
       }
       .podium-name {
-        font-size: 0.95rem;
+        font-size: 0.82rem;
       }
       .podium-score {
-        font-size: 1.05rem;
+        font-size: 0.95rem;
+      }
+      .header-actions-group {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .header-actions-group > * {
+        flex: 1 1 auto;
+        justify-content: center;
       }
     }
   </style>
@@ -191,7 +218,7 @@
         </p>
       </div>
 
-      <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+      <div class="header-actions-group" style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
         <button onclick="refreshActiveTab()" class="btn-cyber btn-lime" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1.25rem;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
           REFRESH LIVE

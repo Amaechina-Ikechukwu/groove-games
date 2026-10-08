@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Groove - Player Buzzer</title>
   <link rel="stylesheet" href="/css/style.css?v=3.0">
   <style>
@@ -10,15 +10,19 @@
       background: var(--bg-dark);
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      min-height: 100vh;
+      min-height: 100dvh;
+      height: 100dvh;
       overflow: hidden;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
     }
 
     .mobile-top-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 1rem 1.25rem;
+      padding: 0.75rem 1rem;
       background: var(--bg-surface);
       border-bottom: 1px solid var(--border-cyber);
       flex-shrink: 0;
@@ -33,11 +37,13 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
     }
 
     .top-stream-title {
       font-family: var(--font-display);
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-weight: 900;
       letter-spacing: 2px;
       text-transform: uppercase;
@@ -48,16 +54,19 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      justify-content: flex-start;
       align-items: center;
-      padding: 1rem 1.25rem;
+      padding: 0.75rem 1rem;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       position: relative;
+      width: 100%;
     }
 
     .stage-wrapper {
       width: 100%;
-      max-width: 440px;
+      max-width: 480px;
+      margin: auto 0;
       display: none;
       flex-direction: column;
       align-items: center;
@@ -74,7 +83,7 @@
       border: 1px solid var(--border-cyber);
       border-radius: var(--radius-streamo);
       width: 100%;
-      padding: 1.75rem 1.5rem;
+      padding: 1.5rem 1.25rem;
       position: relative;
       box-shadow: var(--shadow-cyber);
     }
@@ -84,17 +93,18 @@
       justify-content: space-between;
       align-items: center;
       width: 100%;
-      margin-bottom: 1rem;
+      margin-bottom: 0.65rem;
+      flex-shrink: 0;
     }
 
     .hud-pill {
       background: var(--bg-surface-elevated);
       border: 1px solid var(--border-cyber);
-      padding: 0.4rem 0.85rem;
+      padding: 0.35rem 0.75rem;
       border-radius: var(--radius-pill);
       font-family: var(--font-display);
       font-weight: 800;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       color: #fff;
       display: flex;
       align-items: center;
@@ -110,10 +120,11 @@
     .buzzer-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      grid-gap: 0.85rem;
+      grid-gap: 0.75rem;
       width: 100%;
       flex: 1;
-      max-height: 480px;
+      min-height: 0;
+      max-height: none;
     }
 
     .buzzer-btn {
@@ -124,26 +135,31 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      padding: 1rem;
+      padding: 0.75rem 0.5rem;
       transition: transform 0.08s ease, filter 0.15s ease;
       position: relative;
       box-shadow: var(--shadow-cyber);
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      min-height: 0;
+      height: 100%;
     }
 
     .buzzer-btn:active {
-      transform: scale(0.94);
+      transform: scale(0.95);
     }
 
     .buzzer-glyph {
-      font-size: 3.5rem;
+      font-size: clamp(2rem, 7vw, 3.2rem);
       line-height: 1;
-      margin-bottom: 0.35rem;
+      margin-bottom: 0.25rem;
     }
 
     .buzzer-label {
       font-family: var(--font-display);
       font-weight: 800;
-      font-size: 1.1rem;
+      font-size: clamp(0.85rem, 3.2vw, 1.1rem);
       line-height: 1.2;
       text-align: center;
       word-break: break-word;
@@ -151,7 +167,7 @@
 
     .buzzer-0 {
       background: linear-gradient(135deg, #FF2A55 0%, #D81B43 100%);
-      border-radius: 28px 12px 12px 12px;
+      border-radius: 24px 10px 10px 10px;
       box-shadow: 0 6px 20px var(--tile-red-glow);
     }
 
@@ -415,7 +431,7 @@
     </div>
 
     <!-- STAGE 4: ACTIVE QUESTION & ASYMMETRIC BUZZER -->
-    <div id="stageQuestion" class="stage-wrapper" style="height: 100%; max-height: 580px; justify-content: space-between;">
+    <div id="stageQuestion" class="stage-wrapper" style="height: 100%; margin: 0; justify-content: space-between; flex: 1; width: 100%;">
       <div class="player-hud-bar">
         <span id="playerQuestionNum" class="hud-pill" style="font-size: 0.9rem;">Q1 of 5</span>
         <div id="playerTimerBadge" class="cyber-timer-ring" style="width: 54px; height: 54px; font-size: 1.4rem;">20</div>

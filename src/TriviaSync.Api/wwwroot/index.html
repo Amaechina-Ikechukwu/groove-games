@@ -209,11 +209,57 @@
     }
 
     @media (max-width: 900px) {
+      .home-container {
+        padding: 1.5rem 1rem 4rem 1rem;
+      }
       .top-hero-layout {
         grid-template-columns: 1fr;
+        gap: 2rem;
       }
       .hero-text h1 {
-        font-size: 2.75rem;
+        font-size: clamp(2rem, 7.5vw, 3.2rem);
+      }
+      .hero-text p {
+        font-size: 1.05rem;
+      }
+      .portals-grid {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .featured-vertical-badge {
+        position: static;
+        transform: none;
+        writing-mode: horizontal-tb;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.75rem;
+        letter-spacing: 1px;
+        display: inline-block;
+        margin-top: 1rem;
+        align-self: flex-start;
+      }
+      .streamo-featured-card {
+        padding: 1.5rem 1.25rem;
+        min-height: auto;
+      }
+      .featured-content .game-title {
+        font-size: clamp(1.8rem, 6vw, 2.4rem);
+      }
+      .fast-pin-bar {
+        width: 100%;
+        max-width: 100%;
+        gap: 0.5rem;
+        padding: 0.4rem;
+      }
+      .fast-pin-bar input {
+        font-size: 1.15rem;
+        padding: 0.5rem;
+      }
+      .portal-card {
+        padding: 1.5rem 1.25rem;
+        min-height: auto;
       }
     }
   </style>

@@ -228,6 +228,16 @@ function showStage(stageId) {
   document.querySelectorAll('.stage-wrapper').forEach(el => el.classList.remove('active'));
   const target = document.getElementById(stageId);
   if (target) target.classList.add('active');
+
+  // Hide bottom nav tray when question buzzer is active to maximize touch area
+  const bottomNav = document.querySelector('.bottom-cyber-bar');
+  if (bottomNav) {
+    if (stageId === 'stageQuestion') {
+      bottomNav.style.display = 'none';
+    } else {
+      bottomNav.style.display = 'flex';
+    }
+  }
 }
 
 async function handleJoin(e) {
