@@ -105,6 +105,13 @@ function checkAdminAuth() {
   }
 }
 
+function setAdminCreds(email, password) {
+  const emailInput = document.getElementById('adminLoginEmail');
+  const passInput = document.getElementById('adminLoginPassword');
+  if (emailInput) emailInput.value = email;
+  if (passInput) passInput.value = password;
+}
+
 async function handleAdminLogin(e) {
   e.preventDefault();
   const email = document.getElementById('adminLoginEmail').value.trim();
@@ -116,7 +123,7 @@ async function handleAdminLogin(e) {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email, password, portal: 'Admin', requestedRole: 'Admin' })
     });
 
     if (res.ok) {

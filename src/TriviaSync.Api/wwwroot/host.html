@@ -362,6 +362,24 @@
 
   <div class="stadium-container">
 
+    <!-- Host Auth Required Banner (shown when not logged in) -->
+    <div id="hostAuthBanner" style="display: none; background: rgba(212, 255, 0, 0.08); border: 1.5px solid var(--neon-lime); border-radius: var(--radius-button); padding: 1rem 1.5rem; margin-bottom: 1.5rem; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        <div>
+          <div style="font-family: var(--font-display); font-weight: 900; font-size: 1rem; color: #fff; text-transform: uppercase;">
+            HOST AUTHENTICATION REQUIRED
+          </div>
+          <div style="color: var(--text-secondary); font-size: 0.85rem;">
+            You must sign in or register with Host credentials to configure and launch game rooms.
+          </div>
+        </div>
+      </div>
+      <button onclick="openHostAuthModal()" class="btn-cyber btn-lime" style="padding: 0.6rem 1.25rem; font-size: 0.85rem;">
+        SIGN IN OR CREATE HOST ACCOUNT
+      </button>
+    </div>
+
     <!-- SELECT / LAUNCH ROOM STAGE (When no active game session) -->
     <div id="hostStageSelect" class="host-stage active">
       <div class="cyber-card" style="max-width: 820px; margin: 1.5rem auto; padding: 2.5rem; width: 100%;">
@@ -771,7 +789,7 @@
     </div>
   </div>
 
-  <!-- MODAL: HOST SIGN IN -->
+  <!-- MODAL: HOST SIGN IN & REGISTRATION -->
   <div id="hostAuthModal" class="modal-overlay" onclick="closeHostAuthModal(event)">
     <div class="modal-card" style="max-width: 480px;" onclick="event.stopPropagation()">
       <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
@@ -779,27 +797,38 @@
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
         </div>
         <h2 style="font-family: var(--font-display); font-size: 1.7rem; font-weight: 900; text-transform: uppercase; margin: 0;">
-          FACILITATOR SIGN IN
+          FACILITATOR ACCESS
         </h2>
       </div>
       <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.25rem;">
-        Sign in with Host or Administrator credentials to launch game rooms and direct tournament sessions.
+        Sign in or create a Host account to launch game rooms and direct tournament sessions.
       </p>
+
+      <!-- Toggle Sign In vs Register Tabs -->
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; background: var(--bg-surface-elevated); padding: 0.3rem; border-radius: var(--radius-button); border: 1px solid var(--border-cyber);">
+        <button type="button" id="tabHostLoginBtn" onclick="switchHostAuthTab('login')" class="tab-btn active" style="flex: 1; padding: 0.55rem; font-size: 0.85rem; justify-content: center;">
+          SIGN IN
+        </button>
+        <button type="button" id="tabHostRegisterBtn" onclick="switchHostAuthTab('register')" class="tab-btn" style="flex: 1; padding: 0.55rem; font-size: 0.85rem; justify-content: center;">
+          CREATE HOST ACCOUNT
+        </button>
+      </div>
 
       <div id="hostAuthAlert" style="display: none; margin-bottom: 1rem; padding: 0.75rem 1rem; border-radius: var(--radius-button); font-weight: 700; font-size: 0.85rem; background: rgba(255, 42, 85, 0.15); border: 1px solid var(--tile-red); color: var(--tile-red);"></div>
 
-      <form onsubmit="handleHostLogin(event)">
+      <!-- HOST SIGN IN FORM -->
+      <form id="hostLoginForm" onsubmit="handleHostLogin(event)">
         <div style="margin-bottom: 1rem;">
-          <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.35rem;">Email</label>
-          <input type="email" id="modalHostEmailInput" class="form-input-cyber" value="host@groove.live" required>
+          <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.35rem;">Host Email</label>
+          <input type="email" id="modalHostEmailInput" class="form-input-cyber" placeholder="Enter your email" required>
         </div>
         <div style="margin-bottom: 1.25rem;">
           <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.35rem;">Password</label>
-          <input type="password" id="modalHostPasswordInput" class="form-input-cyber" value="host123" required>
+          <input type="password" id="modalHostPasswordInput" class="form-input-cyber" placeholder="Password" required>
         </div>
 
         <div style="margin-bottom: 1.25rem; padding: 0.75rem; background: var(--bg-surface-elevated); border-radius: 8px; border: 1px solid var(--border-cyber); font-size: 0.8rem; color: var(--text-muted);">
-          <strong style="color: var(--text-secondary); display: block; margin-bottom: 0.35rem;">QUICK CREDENTIALS:</strong>
+          <strong style="color: var(--text-secondary); display: block; margin-bottom: 0.35rem;">QUICK DEMO CREDENTIALS:</strong>
           <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
             <button type="button" onclick="setHostCreds('host@groove.live', 'host123')" class="hud-pill" style="cursor: pointer; font-size: 0.75rem;">Host: host@groove.live</button>
             <button type="button" onclick="setHostCreds('admin@groove.live', 'admin123')" class="hud-pill" style="cursor: pointer; font-size: 0.75rem;">Admin: admin@groove.live</button>
@@ -808,6 +837,27 @@
 
         <div style="display: flex; gap: 0.75rem;">
           <button type="submit" class="btn-cyber btn-lime" style="flex: 1;">SIGN IN & ENTER ARENA</button>
+          <button type="button" onclick="closeHostAuthModal()" class="btn-cyber btn-dark">CANCEL</button>
+        </div>
+      </form>
+
+      <!-- HOST REGISTER FORM -->
+      <form id="hostRegisterForm" onsubmit="handleHostRegister(event)" style="display: none;">
+        <div style="margin-bottom: 0.85rem;">
+          <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.35rem;">Full Name / Facilitator Title</label>
+          <input type="text" id="modalHostRegisterName" class="form-input-cyber" placeholder="e.g. John Doe / Quizmaster" required>
+        </div>
+        <div style="margin-bottom: 0.85rem;">
+          <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.35rem;">Host Email Address</label>
+          <input type="email" id="modalHostRegisterEmail" class="form-input-cyber" placeholder="e.g. you@example.com" required>
+        </div>
+        <div style="margin-bottom: 1.25rem;">
+          <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.35rem;">Password</label>
+          <input type="password" id="modalHostRegisterPassword" class="form-input-cyber" placeholder="Create Password (min 4 chars)" required>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem;">
+          <button type="submit" class="btn-cyber btn-lime" style="flex: 1;">CREATE HOST ACCOUNT</button>
           <button type="button" onclick="closeHostAuthModal()" class="btn-cyber btn-dark">CANCEL</button>
         </div>
       </form>

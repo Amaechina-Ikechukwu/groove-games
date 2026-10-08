@@ -219,11 +219,19 @@
           <input type="email" id="adminLoginEmail" class="form-input-cyber" value="admin@groove.live" required>
         </div>
 
-        <div style="margin-bottom: 1.75rem;">
+        <div style="margin-bottom: 1.25rem;">
           <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.4rem;">
             Admin Password
           </label>
           <input type="password" id="adminLoginPassword" class="form-input-cyber" value="admin123" required>
+        </div>
+
+        <div style="margin-bottom: 1.5rem; padding: 0.75rem 1rem; background: var(--bg-surface-elevated); border-radius: 8px; border: 1px solid var(--border-cyber); font-size: 0.8rem; color: var(--text-muted);">
+          <strong style="color: var(--text-secondary); display: block; margin-bottom: 0.35rem;">QUICK CREDENTIALS:</strong>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button type="button" onclick="setAdminCreds('admin@groove.live', 'admin123')" class="hud-pill" style="cursor: pointer; font-size: 0.75rem;">Admin: admin@groove.live</button>
+            <button type="button" onclick="setAdminCreds('admin@triviasync.com', 'admin123')" class="hud-pill" style="cursor: pointer; font-size: 0.75rem;">Admin: admin@triviasync.com</button>
+          </div>
         </div>
 
         <button type="submit" id="btnAdminLoginSubmit" class="btn-cyber btn-lime" style="width: 100%; height: 54px; font-size: 1rem; font-weight: 900; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; gap: 0.65rem;">

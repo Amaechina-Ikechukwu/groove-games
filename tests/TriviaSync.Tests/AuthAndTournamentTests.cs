@@ -92,6 +92,74 @@ public class AuthAndTournamentTests
     }
 
     [Fact]
+    public void HostLogin_NewUser_CreatesHostAccount()
+    {
+        var email = $"newhost_{Guid.NewGuid():N}@gmail.com";
+        var auth = _authService.Login(email, "mypassword123", portal: "Host", requestedRole: "Host");
+
+        Assert.NotNull(auth);
+        Assert.Equal(email, auth.Email);
+        Assert.Equal("Host", auth.Role);
+        Assert.False(string.IsNullOrWhiteSpace(auth.Token));
+    }
+
+    [Fact]
+    public void HostLogin_ExistingPlayer_UpgradesToHost()
+    {
+        var email = $"player_to_host_{Guid.NewGuid():N}@gmail.com";
+        // User registers or fast-logs in as player
+        var reg = _authService.Register(new RegisterRequest
+        {
+            Email = email,
+            Password = "mypassword123",
+            FullName = "Promoted Host",
+            Role = "Player"
+        });
+        Assert.Equal("Player", reg.Role);
+
+        // Later logs in on Host portal
+        var hostLogin = _authService.Login(email, "mypassword123", portal: "Host", requestedRole: "Host");
+        Assert.Equal("Host", hostLogin.Role);
+    }
+
+    [Fact]
+    public void Register_HostRole_CreatesHostAccount()
+    {
+        var email = $"registered_host_{Guid.NewGuid():N}@gmail.com";
+        var reg = _authService.Register(new RegisterRequest
+        {
+            Email = email,
+            Password = "mypassword123",
+            FullName = "Official Host",
+            Role = "Host"
+        });
+
+        Assert.NotNull(reg);
+        Assert.Equal(email, reg.Email);
+        Assert.Equal("Host", reg.Role);
+    }
+
+    [Fact]
+    public void AuthController_Login_WithHostPortal_ReturnsHostAuthResponse()
+    {
+        var controller = new AuthController(_authService);
+        var email = $"controller_host_{Guid.NewGuid():N}@gmail.com";
+
+        var actionResult = controller.Login(new LoginRequest
+        {
+            Email = email,
+            Password = "password123",
+            Portal = "Host",
+            RequestedRole = "Host"
+        });
+
+        var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
+        var authResponse = Assert.IsType<AuthResponse>(okResult.Value);
+        Assert.Equal("Host", authResponse.Role);
+        Assert.Equal(email, authResponse.Email);
+    }
+
+    [Fact]
     public void TournamentLeaderboard_AggregatesPlayersAcrossMultipleSessions()
     {
         var mockDataService = new Mock<ITriviaDataService>();

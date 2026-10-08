@@ -8,7 +8,7 @@ namespace TriviaSync.Api.Services;
 
 public interface IAuthService
 {
-    AuthResponse Login(string email, string password);
+    AuthResponse Login(string email, string password, string? portal = null, string? requestedRole = null);
     AuthResponse Register(RegisterRequest req);
     List<UserDto> GetAllUsers();
     bool AssignRole(string email, string role);
@@ -41,11 +41,6 @@ public class AuthService : IAuthService
         }
 
         var email = req.Email.Trim().ToLowerInvariant();
-        if (_users.ContainsKey(email))
-        {
-            throw new InvalidOperationException("An account with this email already exists.");
-        }
-
         var role = req.Role?.Trim();
         if (string.IsNullOrWhiteSpace(role) || role.Equals("Admin", StringComparison.OrdinalIgnoreCase))
         {
@@ -53,6 +48,30 @@ public class AuthService : IAuthService
         }
 
         var displayName = string.IsNullOrWhiteSpace(req.FullName) ? email.Split('@')[0] : req.FullName.Trim();
+
+        if (_users.TryGetValue(email, out var existing))
+        {
+            // If the user already existed with Player role and is now registering as Host with matching password,
+            // upgrade their role to Host!
+            if (role.Equals("Host", StringComparison.OrdinalIgnoreCase) &&
+                existing.Role.Equals("Player", StringComparison.OrdinalIgnoreCase) &&
+                existing.PasswordHash == req.Password)
+            {
+                _users[email] = (req.Password, role, displayName);
+                var upToken = GenerateToken(email, role, displayName);
+                return new AuthResponse
+                {
+                    Token = upToken,
+                    Uid = $"usr_{email.Replace("@", "_").Replace(".", "_")}",
+                    Email = email,
+                    DisplayName = displayName,
+                    Role = role
+                };
+            }
+
+            throw new InvalidOperationException("An account with this email already exists.");
+        }
+
         _users[email] = (req.Password, role, displayName);
 
         var token = GenerateToken(email, role, displayName);
@@ -66,27 +85,63 @@ public class AuthService : IAuthService
         };
     }
 
-    public AuthResponse Login(string email, string password)
+    public AuthResponse Login(string email, string password, string? portal = null, string? requestedRole = null)
     {
         email = email.Trim().ToLowerInvariant();
-        if (_users.TryGetValue(email, out var user) && user.PasswordHash == password)
+
+        // Determine effective requested role if specified or inferred from portal
+        var effectiveRole = !string.IsNullOrWhiteSpace(requestedRole) ? requestedRole.Trim() :
+                            string.Equals(portal, "Host", StringComparison.OrdinalIgnoreCase) ? "Host" :
+                            string.Equals(portal, "Admin", StringComparison.OrdinalIgnoreCase) ? "Admin" :
+                            string.Equals(portal, "Player", StringComparison.OrdinalIgnoreCase) ? "Player" : null;
+
+        if (_users.TryGetValue(email, out var user))
         {
-            var token = GenerateToken(email, user.Role, user.DisplayName);
-            return new AuthResponse
+            if (user.PasswordHash == password)
             {
-                Token = token,
-                Uid = $"usr_{email.Replace("@", "_").Replace(".", "_")}",
-                Email = email,
-                DisplayName = user.DisplayName,
-                Role = user.Role
-            };
+                var role = user.Role;
+                // If logging in via Host portal or requesting Host role, upgrade Player to Host
+                if (string.Equals(effectiveRole, "Host", StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(role, "Player", StringComparison.OrdinalIgnoreCase))
+                {
+                    role = "Host";
+                    _users[email] = (user.PasswordHash, role, user.DisplayName);
+                }
+
+                var token = GenerateToken(email, role, user.DisplayName);
+                return new AuthResponse
+                {
+                    Token = token,
+                    Uid = $"usr_{email.Replace("@", "_").Replace(".", "_")}",
+                    Email = email,
+                    DisplayName = user.DisplayName,
+                    Role = role
+                };
+            }
+            throw new UnauthorizedAccessException("Invalid password.");
         }
 
-        // Fast sign-in for new contenders / test users (defaults to Player role)
+        // Fast sign-in for new contenders / facilitators who haven't signed in before
         if (!string.IsNullOrWhiteSpace(email) && password.Length >= 4)
         {
-            var role = email.Contains("admin", StringComparison.OrdinalIgnoreCase) ? "Admin" :
-                       email.Contains("host", StringComparison.OrdinalIgnoreCase) ? "Host" : "Player";
+            string role;
+            if (!string.IsNullOrWhiteSpace(effectiveRole))
+            {
+                role = effectiveRole;
+            }
+            else if (email.Contains("admin", StringComparison.OrdinalIgnoreCase))
+            {
+                role = "Admin";
+            }
+            else if (email.Contains("host", StringComparison.OrdinalIgnoreCase))
+            {
+                role = "Host";
+            }
+            else
+            {
+                role = "Player";
+            }
+
             var displayName = email.Split('@')[0];
             _users[email] = (password, role, displayName);
             var token = GenerateToken(email, role, displayName);

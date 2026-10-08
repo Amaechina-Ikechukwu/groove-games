@@ -22,21 +22,46 @@ function checkHostAuth() {
   const email = sessionStorage.getItem('groove_host_email') || sessionStorage.getItem('groove_admin_email');
   const emailDisplay = document.getElementById('hostEmailDisplay');
   const logoutBtn = document.getElementById('hostLogoutBtn');
+  const banner = document.getElementById('hostAuthBanner');
 
   if (token && email) {
     currentHostId = email;
     if (emailDisplay) emailDisplay.textContent = email;
     if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+    if (banner) banner.style.display = 'none';
     loadSavedQuizzes();
     return true;
   } else {
     if (emailDisplay) emailDisplay.textContent = 'Sign In as Host';
     if (logoutBtn) logoutBtn.style.display = 'none';
+    if (banner) banner.style.display = 'flex';
     return false;
   }
 }
 
+function switchHostAuthTab(tab) {
+  const loginBtn = document.getElementById('tabHostLoginBtn');
+  const regBtn = document.getElementById('tabHostRegisterBtn');
+  const loginForm = document.getElementById('hostLoginForm');
+  const regForm = document.getElementById('hostRegisterForm');
+  const alertBox = document.getElementById('hostAuthAlert');
+  if (alertBox) alertBox.style.display = 'none';
+
+  if (tab === 'login') {
+    if (loginBtn) loginBtn.classList.add('active');
+    if (regBtn) regBtn.classList.remove('active');
+    if (loginForm) loginForm.style.display = 'block';
+    if (regForm) regForm.style.display = 'none';
+  } else {
+    if (loginBtn) loginBtn.classList.remove('active');
+    if (regBtn) regBtn.classList.add('active');
+    if (loginForm) loginForm.style.display = 'none';
+    if (regForm) regForm.style.display = 'block';
+  }
+}
+
 function setHostCreds(email, password) {
+  switchHostAuthTab('login');
   document.getElementById('modalHostEmailInput').value = email;
   document.getElementById('modalHostPasswordInput').value = password;
 }
@@ -49,7 +74,11 @@ function hostLogout() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  checkHostAuth();
+  const isAuth = checkHostAuth();
+  // If not logged in, ask the user ASAP
+  if (!isAuth) {
+    openHostAuthModal();
+  }
 
   const params = new URLSearchParams(window.location.search);
   const pinParam = params.get('pin');
@@ -65,11 +94,19 @@ function toggleSessionMode() {
 }
 
 function openHostAuthModal() {
-  document.getElementById('hostAuthModal').classList.add('active');
+  const modal = document.getElementById('hostAuthModal');
+  if (modal) {
+    modal.classList.add('active');
+    setTimeout(() => {
+      const emailInput = document.getElementById('modalHostEmailInput');
+      if (emailInput && !emailInput.value) emailInput.focus();
+    }, 150);
+  }
 }
 
 function closeHostAuthModal() {
-  document.getElementById('hostAuthModal').classList.remove('active');
+  const modal = document.getElementById('hostAuthModal');
+  if (modal) modal.classList.remove('active');
 }
 
 async function handleHostLogin(e) {
@@ -83,7 +120,7 @@ async function handleHostLogin(e) {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email, password, portal: 'Host', requestedRole: 'Host' })
     });
 
     if (res.ok) {
@@ -112,6 +149,52 @@ async function handleHostLogin(e) {
     console.error(err);
     if (alertBox) {
       alertBox.textContent = 'Network error while attempting host login.';
+      alertBox.style.display = 'block';
+    }
+  }
+}
+
+async function handleHostRegister(e) {
+  e.preventDefault();
+  const fullName = document.getElementById('modalHostRegisterName').value.trim();
+  const email = document.getElementById('modalHostRegisterEmail').value.trim();
+  const password = document.getElementById('modalHostRegisterPassword').value.trim();
+  const alertBox = document.getElementById('hostAuthAlert');
+  if (alertBox) alertBox.style.display = 'none';
+
+  if (!fullName || !email || !password) {
+    if (alertBox) {
+      alertBox.textContent = 'All fields are required.';
+      alertBox.style.display = 'block';
+    }
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fullName, email, password, role: 'Host' })
+    });
+
+    if (res.ok) {
+      const auth = await res.json();
+      currentHostId = auth.email;
+      sessionStorage.setItem('groove_host_email', auth.email);
+      sessionStorage.setItem('groove_host_token', auth.token);
+      checkHostAuth();
+      closeHostAuthModal();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      if (alertBox) {
+        alertBox.textContent = err.message || 'Registration failed. Try a different email or sign in.';
+        alertBox.style.display = 'block';
+      }
+    }
+  } catch (err) {
+    console.error(err);
+    if (alertBox) {
+      alertBox.textContent = 'Network error during host registration.';
       alertBox.style.display = 'block';
     }
   }

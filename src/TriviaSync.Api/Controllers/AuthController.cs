@@ -21,7 +21,7 @@ public class AuthController : ControllerBase
     {
         try
         {
-            var response = _authService.Login(request.Email, request.Password);
+            var response = _authService.Login(request.Email, request.Password, request.Portal, request.RequestedRole);
             return Ok(response);
         }
         catch (UnauthorizedAccessException ex)
