@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Groove - Live Multiplayer Esports Quiz</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .home-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 5rem 1.5rem;
+      flex: 1;
+    }
+
+    .top-hero-layout {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 2rem;
+      margin-bottom: 3.5rem;
+      align-items: center;
+    }
+
+    .hero-text h1 {
+      font-family: var(--font-display);
+      font-size: 3.8rem;
+      font-weight: 900;
+      letter-spacing: -1px;
+      line-height: 1.05;
+      text-transform: uppercase;
+      margin-bottom: 1.25rem;
+    }
+
+    .hero-text h1 span.neon {
+      color: var(--neon-lime);
+      text-shadow: 0 0 25px var(--neon-lime-glow);
+    }
+
+    .hero-text p {
+      color: var(--text-secondary);
+      font-size: 1.2rem;
+      line-height: 1.6;
+      margin-bottom: 2rem;
+      max-width: 580px;
+    }
+
+    /* Asymmetric Streamo Featured Card */
+    .streamo-featured-card {
+      background: var(--neon-lime);
+      color: var(--text-dark);
+      border-radius: var(--radius-streamo);
+      padding: 2.25rem;
+      position: relative;
+      box-shadow: 0 20px 50px rgba(212, 255, 0, 0.25);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 360px;
+      transition: transform 0.25s ease;
+    }
+
+    .streamo-featured-card:hover {
+      transform: translateY(-4px);
+    }
+
+    .featured-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .featured-badge {
+      background: #0A0C0F;
+      color: #fff;
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 0.8rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: var(--radius-pill);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .featured-content {
+      margin: 1.5rem 0;
+    }
+
+    .featured-content .game-tag {
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      opacity: 0.8;
+      margin-bottom: 0.35rem;
+    }
+
+    .featured-content .game-title {
+      font-family: var(--font-display);
+      font-size: 2.6rem;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      line-height: 1.1;
+      text-transform: uppercase;
+    }
+
+    .featured-content .viewer-count {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.1rem;
+      margin-top: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .featured-vertical-badge {
+      position: absolute;
+      right: 1.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: 1rem;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      padding: 1.5rem 0.5rem;
+      border-radius: var(--radius-pill);
+      border: 2px solid #0A0C0F;
+    }
+
+    /* Fast Join Bar */
+    .fast-pin-bar {
+      display: flex;
+      gap: 1rem;
+      background: var(--bg-surface);
+      border: 2px solid var(--border-cyber);
+      padding: 0.6rem;
+      border-radius: var(--radius-button);
+      max-width: 480px;
+    }
+
+    .fast-pin-bar input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #fff;
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: 2px;
+    }
+
+    .fast-pin-bar input::placeholder {
+      font-size: 1.1rem;
+      letter-spacing: 0;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    /* Portals Grid */
+    .portals-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.75rem;
+      margin-top: 2rem;
+    }
+
+    .portal-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-cyber);
+      border-radius: var(--radius-card);
+      padding: 2.25rem 2rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 280px;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .portal-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--border-cyber-active);
+      box-shadow: 0 15px 40px rgba(0,0,0,0.7), 0 0 20px rgba(212, 255, 0, 0.15);
+    }
+
+    .portal-glyph {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .portal-title {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.75rem;
+    }
+
+    .portal-desc {
+      color: var(--text-secondary);
+      font-size: 1rem;
+      line-height: 1.5;
+      margin-bottom: 1.75rem;
+    }
+
+    @media (max-width: 900px) {
+      .top-hero-layout {
+        grid-template-columns: 1fr;
+      }
+      .hero-text h1 {
+        font-size: 2.75rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation with Gaming Glyphs -->
+  <nav class="navbar">
+    <a href="/" class="brand-container">
+      <div class="brand-glyph">△</div>
+      <div class="brand-title">GROO<span class="accent">VE</span></div>
+    </a>
+    <div class="nav-pill-group">
+      <a href="/player.html" class="nav-pill active">BUZZER</a>
+      <a href="/host.html" class="nav-pill">HOST TV</a>
+      <a href="/admin.html" class="nav-pill">ADMIN & INGEST</a>
+    </div>
+  </nav>
+
+  <!-- Main Gaming Home -->
+  <div class="home-container">
+    <div class="top-hero-layout">
+      <!-- Left Hero Text -->
+      <div class="hero-text">
+        <div class="live-pill" style="margin-bottom: 1.25rem;">
+          <span class="live-dot"></span>
+          REAL-TIME TOURNAMENT ENGINE
+        </div>
+        <h1>LIVE ARENA <span class="neon">TRIVIA</span></h1>
+        <p>
+          High-voltage multiplayer showdowns powered by <strong>.NET 8 & SignalR</strong> with 
+          sub-second synchronization, persistent cumulative player scoring, and smart bulk quiz ingestion.
+        </p>
+
+        <!-- Fast Join PIN Input -->
+        <form onsubmit="handleQuickJoin(event)" class="fast-pin-bar">
+          <input type="text" id="homePinInput" placeholder="ENTER 6-DIGIT PIN" maxlength="6" required>
+          <button type="submit" class="btn-cyber btn-lime">ENTER</button>
+        </form>
+      </div>
+
+      <!-- Right Asymmetric Streamo Featured Card -->
+      <div class="streamo-featured-card">
+        <div class="featured-header">
+          <div class="featured-badge">FEATURED MATCH</div>
+          <span style="font-size: 1.5rem; font-weight: 900;">⚡</span>
+        </div>
+
+        <div class="featured-content">
+          <div class="game-tag">C# & MICROSERVICES</div>
+          <div class="game-title">DEVELOPER CLASH</div>
+          <div class="viewer-count">
+            <span>👥</span> 48 Live Participants
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem; align-items: center;">
+          <a href="/player.html" class="btn-cyber btn-dark" style="color: #fff; background: #0A0C0F; border: none; padding: 0.75rem 1.5rem;">
+            QUICK PLAY
+          </a>
+          <a href="/host.html" class="btn-cyber" style="color: #0A0C0F; background: transparent; border: 2px solid #0A0C0F; padding: 0.75rem 1.5rem;">
+            SPECTATE
+          </a>
+        </div>
+
+        <div class="featured-vertical-badge">
+          PLAY
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 Core Portals -->
+    <h2 style="font-family: var(--font-display); font-size: 1.4rem; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 1rem;">
+      TOURNAMENT HUBS
+    </h2>
+
+    <div class="portals-grid">
+      <!-- Player Buzzer -->
+      <div class="portal-card">
+        <div>
+          <div class="portal-glyph">🎮</div>
+          <h3 class="portal-title">Participant Buzzer</h3>
+          <p class="portal-desc">
+            Connect via Room PIN and full name. Rapid-fire colored geometric buzzer tiles with real-time feedback and answer streaks.
+          </p>
+        </div>
+        <a href="/player.html" class="btn-cyber btn-lime">Launch Buzzer</a>
+      </div>
+
+      <!-- Host Screen -->
+      <div class="portal-card">
+        <div>
+          <div class="portal-glyph">📺</div>
+          <h3 class="portal-title">Host Arena Display</h3>
+          <p class="portal-desc">
+            Projector & TV stadium view. Real-time participant lobby, live answer meters, animated countdowns, and 3D celebratory podium.
+          </p>
+        </div>
+        <a href="/host.html" class="btn-cyber btn-dark">Open Host Screen</a>
+      </div>
+
+      <!-- Admin & Ingestion -->
+      <div class="portal-card">
+        <div>
+          <div class="portal-glyph">⚡</div>
+          <h3 class="portal-title">Admin & Quiz Ingest</h3>
+          <p class="portal-desc">
+            Bulk paste questions in Markdown, text, or JSON. Manage quiz banks, view persistent cumulative leaderboards, and export CSV/Excel.
+          </p>
+        </div>
+        <a href="/admin.html" class="btn-cyber btn-dark">Access Admin Deck</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Streamo Tray Navigation Bar -->
+  <div class="bottom-cyber-bar">
+    <a href="/" class="bottom-cyber-item">
+      <span class="bottom-cyber-icon">⬡</span>
+      <span>HOME</span>
+    </a>
+    <a href="/player.html" class="bottom-cyber-item">
+      <span class="bottom-cyber-icon">🎮</span>
+      <span>PLAY</span>
+    </a>
+    <a href="/host.html" class="bottom-cyber-item">
+      <span class="bottom-cyber-icon">📺</span>
+      <span>STADIUM</span>
+    </a>
+    <a href="/admin.html" class="bottom-cyber-item">
+      <span class="bottom-cyber-icon">⚡</span>
+      <span>INGEST</span>
+    </a>
+  </div>
+
+  <script>
+    function handleQuickJoin(e) {
+      e.preventDefault();
+      const pin = document.getElementById('homePinInput').value.trim();
+      if (pin) {
+        window.location.href = `/player.html?pin=${encodeURIComponent(pin.toUpperCase())}`;
+      }
+    }
+  </script>
+</body>
+</html>

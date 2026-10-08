@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  groove:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: groove
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - groove_data:/var/lib/postgresql/data
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5000
+      - ConnectionStrings__DefaultConnection=Host=localhost;Port=5432;Database=groove;Username=postgres;Password=postgres
+      - Jwt__Key=GrooveSuperSecretProductionSigningKeyReplaceWithLongRandomString64Chars!
+      - Jwt__Issuer=Groove
+      - Jwt__Audience=GrooveClients
+
+volumes:
+  groove_data:
+    driver: local

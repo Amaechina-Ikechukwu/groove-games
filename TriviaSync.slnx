@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TriviaSync.Api/TriviaSync.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TriviaSync.Tests/TriviaSync.Tests.csproj" />
+  </Folder>
+</Solution>

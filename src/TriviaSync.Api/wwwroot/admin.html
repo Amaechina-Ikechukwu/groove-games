@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Groove - Admin Deck & Bulk Ingestion</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body {
+      background: var(--bg-dark);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .admin-container {
+      max-width: 1450px;
+      margin: 0 auto;
+      padding: 1.5rem 2rem 5rem 2rem;
+      width: 100%;
+      flex: 1;
+    }
+
+    /* Admin Sub Navigation Tabs */
+    .admin-tabs {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border-cyber);
+      padding-bottom: 1rem;
+    }
+
+    .tab-btn {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-cyber);
+      color: var(--text-secondary);
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 0.95rem;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 0.75rem 1.5rem;
+      border-radius: var(--radius-button);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .tab-btn.active {
+      background: var(--neon-lime);
+      color: var(--text-dark);
+      border-color: var(--neon-lime);
+      box-shadow: 0 0 20px var(--neon-lime-glow);
+    }
+
+    .tab-content {
+      display: none;
+      animation: popIn 0.25s ease;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Split-screen layout for Bulk Ingestion */
+    .split-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      align-items: flex-start;
+    }
+
+    .raw-textarea {
+      width: 100%;
+      height: 480px;
+      background: #0d0f14;
+      border: 2px solid var(--border-cyber);
+      border-radius: var(--radius-card);
+      color: #A3E635;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 1rem;
+      line-height: 1.5;
+      padding: 1.25rem;
+      outline: none;
+      resize: vertical;
+      transition: border-color 0.2s ease;
+    }
+
+    .raw-textarea:focus {
+      border-color: var(--neon-lime);
+      box-shadow: 0 0 0 4px var(--neon-lime-dim);
+    }
+
+    /* Parsed Card in Preview */
+    .parsed-q-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-cyber);
+      border-radius: var(--radius-card);
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .parsed-q-card:hover {
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .parsed-choice-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.5rem;
+      background: var(--bg-surface-elevated);
+      padding: 0.5rem 0.85rem;
+      border-radius: var(--radius-button);
+      border: 1px solid var(--border-cyber);
+    }
+
+    .parsed-choice-item.is-correct {
+      border-color: var(--neon-lime);
+      background: rgba(212, 255, 0, 0.08);
+    }
+
+    @media (max-width: 992px) {
+      .split-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <nav class="navbar">
+    <a href="/" class="brand-container">
+      <div class="brand-glyph">⚡</div>
+      <div class="brand-title">GROO<span class="accent">VE</span> CONTROL DECK</div>
+    </a>
+    <div class="nav-pill-group">
+      <a href="/player.html" class="nav-pill">BUZZER</a>
+      <a href="/host.html" class="nav-pill">HOST SCREEN</a>
+      <a href="/admin.html" class="nav-pill active">ADMIN PORTAL</a>
+    </div>
+  </nav>
+
+  <div class="admin-container">
+
+    <!-- Admin Tabs -->
+    <div class="admin-tabs">
+      <button class="tab-btn active" onclick="switchAdminTab('tabIngest')">📝 Bulk Quiz Parser</button>
+      <button class="tab-btn" onclick="switchAdminTab('tabSaved')">📚 Quiz Bank (<span id="savedQuizCountBadge">0</span>)</button>
+      <button class="tab-btn" onclick="switchAdminTab('tabLeaderboard')">🏆 Persistent Tournament Board</button>
+      <button class="tab-btn" onclick="switchAdminTab('tabRoles')">🛡️ Roles & RBAC</button>
+    </div>
+
+    <!-- TAB 1: BULK INGESTION (Split-Screen) -->
+    <div id="tabIngest" class="tab-content active">
+      <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <h2 style="font-family: var(--font-display); font-size: 2rem; font-weight: 900; text-transform: uppercase;">
+            SMART BULK QUIZ INGESTION
+          </h2>
+          <p style="color: var(--text-secondary);">
+            Paste raw Markdown, plain text, or JSON. The backend engine automatically tokenizes questions, choices, answer keys, timers, and point values.
+          </p>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button onclick="insertTemplate(1)" class="btn-cyber btn-dark" style="font-size: 0.85rem; padding: 0.5rem 1rem;">Sample 1 (PRD Syntax)</button>
+          <button onclick="insertTemplate(2)" class="btn-cyber btn-dark" style="font-size: 0.85rem; padding: 0.5rem 1rem;">Sample 2 (C# & Cloud)</button>
+          <button onclick="insertTemplate(3)" class="btn-cyber btn-dark" style="font-size: 0.85rem; padding: 0.5rem 1rem;">Sample 3 (True/False)</button>
+        </div>
+      </div>
+
+      <div class="split-layout">
+        <!-- LEFT: Raw Text Area -->
+        <div class="cyber-card" style="padding: 1.5rem;">
+          <div style="margin-bottom: 1rem;">
+            <label style="font-family: var(--font-display); font-weight: 800; font-size: 0.95rem; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">
+              QUIZ TITLE
+            </label>
+            <input type="text" id="quizTitleInput" class="form-input-cyber" placeholder="e.g. Distributed Systems & Docker" value="C# & Cloud Microservices">
+          </div>
+
+          <div style="margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+              <label style="font-family: var(--font-display); font-weight: 800; font-size: 0.95rem; text-transform: uppercase; color: var(--text-muted);">
+                RAW BULK TEXT / MARKDOWN
+              </label>
+              <span style="font-size: 0.85rem; color: var(--neon-lime);">Use *, [x], or Answer: A</span>
+            </div>
+            <textarea id="rawQuizTextInput" class="raw-textarea" placeholder="Paste questions here..."></textarea>
+          </div>
+
+          <div style="display: flex; gap: 1rem;">
+            <button onclick="runParser()" class="btn-cyber btn-lime" style="flex: 1;">
+              ⚡ PARSE WITH ENGINE
+            </button>
+            <button onclick="clearRawText()" class="btn-cyber btn-dark">
+              CLEAR
+            </button>
+          </div>
+
+          <div id="parseStatusAlert" style="margin-top: 1rem; display: none; padding: 0.85rem; border-radius: var(--radius-button); font-weight: 700;"></div>
+        </div>
+
+        <!-- RIGHT: Live Parsed Cards Preview & Inline Overrides -->
+        <div class="cyber-card" style="padding: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 900; text-transform: uppercase;">
+              STRUCTURED PREVIEW & INLINE OVERRIDES (<span id="parsedCount">0</span>)
+            </h3>
+            <button id="btnSaveToDb" onclick="saveParsedQuizToDatabase()" class="btn-cyber btn-lime" style="display: none;">
+              💾 SAVE TO DATABASE
+            </button>
+          </div>
+
+          <div id="parsedCardsContainer" style="max-height: 560px; overflow-y: auto;">
+            <div style="color: var(--text-muted); padding: 3rem 1rem; text-align: center; font-size: 1.1rem;">
+              Paste quiz text on the left and click "PARSE WITH ENGINE" to preview questions.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: SAVED QUIZZES BANK -->
+    <div id="tabSaved" class="tab-content">
+      <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2 style="font-family: var(--font-display); font-size: 2rem; font-weight: 900; text-transform: uppercase;">
+            SAVED QUIZ BANKS
+          </h2>
+          <p style="color: var(--text-secondary);">
+            Quizzes stored securely in PostgreSQL persistent storage. Launch live rooms with a single click.
+          </p>
+        </div>
+        <button onclick="switchAdminTab('tabIngest')" class="btn-cyber btn-lime">
+          + CREATE NEW QUIZ
+        </button>
+      </div>
+
+      <div id="savedQuizzesGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1.5rem;">
+        <!-- Injected saved quizzes -->
+      </div>
+    </div>
+
+    <!-- TAB 3: PERSISTENT TOURNAMENT LEADERBOARD -->
+    <div id="tabLeaderboard" class="tab-content">
+      <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <h2 style="font-family: var(--font-display); font-size: 2rem; font-weight: 900; text-transform: uppercase;">
+            PERSISTENT TOURNAMENT LEADERBOARD
+          </h2>
+          <p style="color: var(--text-secondary);">
+            Cumulative multi-session scoring deduplicated by Full Name + Organization. Tracks accuracy % and streaks.
+          </p>
+        </div>
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+          <a href="/api/leaderboard/export/csv" class="btn-cyber btn-dark">
+            📥 EXPORT CSV
+          </a>
+          <a href="/api/leaderboard/export/excel" class="btn-cyber btn-lime">
+            📊 EXPORT EXCEL
+          </a>
+          <button onclick="resetLeaderboardConfirm()" class="btn-cyber btn-danger">
+            RESET SCORES
+          </button>
+        </div>
+      </div>
+
+      <!-- Filters Bar -->
+      <div class="cyber-card" style="padding: 1.25rem; margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 260px;">
+          <input type="text" id="leaderboardSearchInput" oninput="loadPersistentLeaderboard()" class="form-input-cyber" placeholder="Search by Player Name or Email/ID...">
+        </div>
+        <div style="width: 200px;">
+          <select id="leaderboardOrgSelect" onchange="loadPersistentLeaderboard()" class="form-input-cyber">
+            <option value="all">All Organizations</option>
+            <option value="global">Global</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Leaderboard Table -->
+      <div class="cyber-card" style="padding: 1.5rem; overflow-x: auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Contender Name</th>
+              <th>Organization</th>
+              <th>Identifier</th>
+              <th>Total Points</th>
+              <th>Quizzes Played</th>
+              <th>Accuracy %</th>
+              <th>Highest Streak</th>
+              <th>Last Active</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardTableBody">
+            <!-- Dynamic contender rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 4: ROLES & RBAC -->
+    <div id="tabRoles" class="tab-content">
+      <div class="cyber-card" style="max-width: 800px; margin: 0 auto; padding: 2.5rem;">
+        <h2 style="font-family: var(--font-display); font-size: 2rem; font-weight: 900; text-transform: uppercase; margin-bottom: 0.5rem;">
+          ROLE-BASED ACCESS CONTROL (RBAC)
+        </h2>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+          Assign Admin and Host roles validated by JWT bearer authentication and role claims.
+        </p>
+
+        <div style="margin-bottom: 2rem; padding: 1.5rem; background: var(--bg-surface-elevated); border-radius: var(--radius-button); border: 1px solid var(--border-cyber);">
+          <h3 style="font-family: var(--font-display); font-size: 1.2rem; font-weight: 800; text-transform: uppercase; margin-bottom: 1rem;">
+            ASSIGN OR PROMOTE USER
+          </h3>
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <input type="email" id="assignEmailInput" class="form-input-cyber" placeholder="User Email (e.g. host@groove.live)" style="flex: 1; min-width: 250px;">
+            <select id="assignRoleSelect" class="form-input-cyber" style="width: 160px;">
+              <option value="Host">Host</option>
+              <option value="Admin">Super Admin</option>
+            </select>
+            <button onclick="handleRoleAssign()" class="btn-cyber btn-lime">
+              UPDATE ROLE
+            </button>
+          </div>
+        </div>
+
+        <h3 style="font-family: var(--font-display); font-size: 1.2rem; font-weight: 800; text-transform: uppercase; margin-bottom: 1rem;">
+          CURRENT PLATFORM USERS
+        </h3>
+        <div id="usersListContainer">
+          <!-- Users loaded dynamically -->
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/js/audio.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>
