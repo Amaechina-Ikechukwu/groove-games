@@ -9,6 +9,7 @@ namespace TriviaSync.Api.Services;
 public interface IAuthService
 {
     AuthResponse Login(string email, string password);
+    AuthResponse Register(RegisterRequest req);
     List<UserDto> GetAllUsers();
     bool AssignRole(string email, string role);
 }
@@ -21,6 +22,8 @@ public class AuthService : IAuthService
         { "admin@groove.live", ("admin123", "Admin", "Super Admin") },
         { "host@groove.live", ("host123", "Host", "Quiz Facilitator") },
         { "demo@groove.live", ("demo123", "Host", "Demo Host") },
+        { "player@groove.live", ("player123", "Player", "Alex Rivera") },
+        { "contender@groove.live", ("contender123", "Player", "Sarah Connor") },
         { "admin@triviasync.com", ("admin123", "Admin", "Super Admin") },
         { "host@triviasync.com", ("host123", "Host", "Quiz Facilitator") }
     };
@@ -30,8 +33,42 @@ public class AuthService : IAuthService
         _config = config;
     }
 
+    public AuthResponse Register(RegisterRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
+        {
+            throw new ArgumentException("Email and password are required.");
+        }
+
+        var email = req.Email.Trim().ToLowerInvariant();
+        if (_users.ContainsKey(email))
+        {
+            throw new InvalidOperationException("An account with this email already exists.");
+        }
+
+        var role = req.Role?.Trim();
+        if (string.IsNullOrWhiteSpace(role) || role.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+        {
+            role = "Player"; // Admin roles cannot be self-registered
+        }
+
+        var displayName = string.IsNullOrWhiteSpace(req.FullName) ? email.Split('@')[0] : req.FullName.Trim();
+        _users[email] = (req.Password, role, displayName);
+
+        var token = GenerateToken(email, role, displayName);
+        return new AuthResponse
+        {
+            Token = token,
+            Uid = $"usr_{email.Replace("@", "_").Replace(".", "_")}",
+            Email = email,
+            DisplayName = displayName,
+            Role = role
+        };
+    }
+
     public AuthResponse Login(string email, string password)
     {
+        email = email.Trim().ToLowerInvariant();
         if (_users.TryGetValue(email, out var user) && user.PasswordHash == password)
         {
             var token = GenerateToken(email, user.Role, user.DisplayName);
@@ -45,10 +82,11 @@ public class AuthService : IAuthService
             };
         }
 
-        // Allow any host login for convenience in evaluation
+        // Fast sign-in for new contenders / test users (defaults to Player role)
         if (!string.IsNullOrWhiteSpace(email) && password.Length >= 4)
         {
-            var role = email.Contains("admin", StringComparison.OrdinalIgnoreCase) ? "Admin" : "Host";
+            var role = email.Contains("admin", StringComparison.OrdinalIgnoreCase) ? "Admin" :
+                       email.Contains("host", StringComparison.OrdinalIgnoreCase) ? "Host" : "Player";
             var displayName = email.Split('@')[0];
             _users[email] = (password, role, displayName);
             var token = GenerateToken(email, role, displayName);

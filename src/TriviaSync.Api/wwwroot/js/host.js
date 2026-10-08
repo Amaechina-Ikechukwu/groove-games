@@ -8,15 +8,48 @@ let activeTournamentSessions = [];
 
 const CHOICE_GLYPHS = ['▲', '◆', '●', '■', '⬡', '★'];
 
-document.addEventListener('DOMContentLoaded', () => {
-  // Check stored host identity
-  const storedHost = sessionStorage.getItem('groove_host_email') || sessionStorage.getItem('triviasync_host_email');
-  if (storedHost) {
-    currentHostId = storedHost;
-    document.getElementById('hostEmailDisplay').textContent = currentHostId;
+function getHostAuthHeaders() {
+  const token = sessionStorage.getItem('groove_host_token') || sessionStorage.getItem('groove_admin_token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
+  return headers;
+}
 
-  loadSavedQuizzes();
+function checkHostAuth() {
+  const token = sessionStorage.getItem('groove_host_token') || sessionStorage.getItem('groove_admin_token');
+  const email = sessionStorage.getItem('groove_host_email') || sessionStorage.getItem('groove_admin_email');
+  const emailDisplay = document.getElementById('hostEmailDisplay');
+  const logoutBtn = document.getElementById('hostLogoutBtn');
+
+  if (token && email) {
+    currentHostId = email;
+    if (emailDisplay) emailDisplay.textContent = email;
+    if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+    loadSavedQuizzes();
+    return true;
+  } else {
+    if (emailDisplay) emailDisplay.textContent = 'Sign In as Host';
+    if (logoutBtn) logoutBtn.style.display = 'none';
+    return false;
+  }
+}
+
+function setHostCreds(email, password) {
+  document.getElementById('modalHostEmailInput').value = email;
+  document.getElementById('modalHostPasswordInput').value = password;
+}
+
+function hostLogout() {
+  sessionStorage.removeItem('groove_host_token');
+  sessionStorage.removeItem('groove_host_email');
+  checkHostAuth();
+  openHostAuthModal();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  checkHostAuth();
 
   const params = new URLSearchParams(window.location.search);
   const pinParam = params.get('pin');
@@ -43,6 +76,8 @@ async function handleHostLogin(e) {
   e.preventDefault();
   const email = document.getElementById('modalHostEmailInput').value.trim();
   const password = document.getElementById('modalHostPasswordInput').value.trim();
+  const alertBox = document.getElementById('hostAuthAlert');
+  if (alertBox) alertBox.style.display = 'none';
 
   try {
     const res = await fetch('/api/auth/login', {
@@ -53,24 +88,38 @@ async function handleHostLogin(e) {
 
     if (res.ok) {
       const auth = await res.json();
+      if (auth.role !== 'Host' && auth.role !== 'Admin' && auth.role !== 'SuperAdmin') {
+        if (alertBox) {
+          alertBox.textContent = `Access denied. Role '${auth.role}' is not authorized to direct games as Host.`;
+          alertBox.style.display = 'block';
+        }
+        return;
+      }
+
       currentHostId = auth.email;
       sessionStorage.setItem('groove_host_email', auth.email);
       sessionStorage.setItem('groove_host_token', auth.token);
-      document.getElementById('hostEmailDisplay').textContent = auth.email;
+      checkHostAuth();
       closeHostAuthModal();
-      alert(`Signed in as ${auth.role}: ${auth.displayName}`);
     } else {
-      alert('Login failed. Please check credentials.');
+      const err = await res.json().catch(() => ({}));
+      if (alertBox) {
+        alertBox.textContent = err.message || 'Login failed. Please verify your host credentials.';
+        alertBox.style.display = 'block';
+      }
     }
   } catch (err) {
     console.error(err);
-    alert('Network error during authentication.');
+    if (alertBox) {
+      alertBox.textContent = 'Network error while attempting host login.';
+      alertBox.style.display = 'block';
+    }
   }
 }
 
 async function loadSavedQuizzes() {
   try {
-    const res = await fetch('/api/quizzes');
+    const res = await fetch('/api/quizzes', { headers: getHostAuthHeaders() });
     if (res.ok) {
       const quizzes = await res.json();
       const select = document.getElementById('quizSelectDropdown');
@@ -87,6 +136,9 @@ async function loadSavedQuizzes() {
         opt.textContent = `${q.title} (${q.questions.length} Questions)`;
         select.appendChild(opt);
       });
+    } else if (res.status === 401) {
+      const select = document.getElementById('quizSelectDropdown');
+      if (select) select.innerHTML = '<option value="">Sign in as Host/Admin to load saved quizzes</option>';
     }
   } catch (err) {
     console.error('Error loading quizzes:', err);
@@ -102,11 +154,16 @@ function connectExistingPin() {
 }
 
 async function launchNewSession() {
+  if (!checkHostAuth()) {
+    openHostAuthModal();
+    return;
+  }
+
   const select = document.getElementById('quizSelectDropdown');
   const quizId = select.value;
   const isMulti = document.getElementById('modeMulti').checked;
-  const sessionCount = parseInt(document.getElementById('multiSessionCountSelect').value) || 2;
-  const tournamentName = document.getElementById('tournamentNameInput').value.trim();
+  const sessionCount = parseInt(document.getElementById('multiSessionCountSelect').value) || 1;
+  const tournamentName = document.getElementById('tournamentNameInput').value.trim() || 'Arena Tournament';
   const autoAdvance = document.getElementById('autoAdvanceCheck').checked;
 
   if (!quizId) {
@@ -126,7 +183,7 @@ async function launchNewSession() {
 
     const res = await fetch('/api/sessions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHostAuthHeaders(),
       body: JSON.stringify(payload)
     });
 
@@ -557,13 +614,33 @@ async function viewCumulativeLeaderboard() {
       players.forEach((p, idx) => {
         const tr = document.createElement('tr');
         tr.className = 'row-card';
+
+        const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : 'rank-other';
+        const rankIcon = idx === 0 
+          ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>#1`
+          : `#${idx + 1}`;
+
+        const acc = p.accuracyPercentage || 0;
+        const accClass = acc >= 80 ? 'accuracy-high' : acc >= 50 ? 'accuracy-mid' : 'accuracy-low';
+        const initials = (p.fullName || 'C').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+
         tr.innerHTML = `
-          <td><strong style="color: ${idx === 0 ? 'var(--neon-lime)' : '#fff'};">#${idx + 1}</strong></td>
-          <td><strong style="font-family: var(--font-display);">${escapeHtml(p.fullName)}</strong></td>
-          <td><strong style="font-family: var(--font-display); color: var(--neon-lime);">${p.totalPointsAllTime.toLocaleString()} PTS</strong></td>
-          <td>${p.quizzesPlayed}</td>
-          <td><strong style="color: #2ecc71;">${p.accuracyPercentage}%</strong></td>
-          <td><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFA502" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; vertical-align: -0.15em; margin-right: 0.25rem;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>${p.highestStreak}</td>
+          <td><span class="rank-badge ${rankClass}">${rankIcon}</span></td>
+          <td>
+            <div class="contender-cell">
+              <div class="contender-avatar">${initials}</div>
+              <div class="contender-name-text">${escapeHtml(p.fullName)}</div>
+            </div>
+          </td>
+          <td><span class="score-cyber">${(p.totalPointsAllTime || 0).toLocaleString()} PTS</span></td>
+          <td style="font-weight: 700; color: #fff;">${p.quizzesPlayed || 0}</td>
+          <td><span class="accuracy-pill ${accClass}">${acc}%</span></td>
+          <td>
+            <span class="streak-chip">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFA502" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+              ${p.highestStreak || 0}
+            </span>
+          </td>
           <td style="color: var(--text-muted); font-size: 0.85rem;">${new Date(p.lastActive).toLocaleDateString()}</td>
         `;
         tbody.appendChild(tr);

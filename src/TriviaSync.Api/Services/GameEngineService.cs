@@ -390,9 +390,11 @@ public class GameEngineService : IGameEngineService
         bool isCorrect = (choiceIndex == question.CorrectIndex);
         int pointsEarned = 0;
 
+        player.TotalAnswers++;
         if (isCorrect)
         {
             pointsEarned = CalculatePoints(question.Points, elapsedSeconds, question.TimeLimitSeconds);
+            player.CorrectAnswers++;
             player.CurrentStreak++;
             if (player.CurrentStreak > player.HighestStreak)
             {

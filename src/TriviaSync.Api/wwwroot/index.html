@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Groove - Live Multiplayer Esports Quiz</title>
-  <link rel="stylesheet" href="/css/style.css?v=2.2">
+  <link rel="stylesheet" href="/css/style.css?v=3.0">
   <style>
     .home-container {
       max-width: 1200px;
@@ -229,6 +229,7 @@
       <div class="brand-title">GROO<span class="accent">VE</span></div>
     </a>
     <div class="nav-pill-group">
+      <a href="/leaderboard.html" class="nav-pill">STANDINGS</a>
       <a href="/player.html" class="nav-pill active">BUZZER</a>
       <a href="/host.html" class="nav-pill">HOST TV</a>
       <a href="/admin.html" class="nav-pill">ADMIN & INGEST</a>
@@ -318,6 +319,20 @@
         <a href="/host.html" class="btn-cyber btn-dark">Open Host Screen</a>
       </div>
 
+      <!-- Public Standings & Leaderboard -->
+      <div class="portal-card">
+        <div>
+          <div class="portal-glyph" style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; margin-bottom: 1rem; color: var(--neon-lime);">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 32px; height: 32px;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path><path d="M6 4h12v7a6 6 0 0 1-12 0V4z"></path></svg>
+          </div>
+          <h3 class="portal-title">Public Standings</h3>
+          <p class="portal-desc">
+            Explore live cumulative tournament scores, multi-session breakdowns, and the all-time Hall of Fame. 100% public, no login needed.
+          </p>
+        </div>
+        <a href="/leaderboard.html" class="btn-cyber btn-lime">View Standings</a>
+      </div>
+
       <!-- Admin & Ingestion -->
       <div class="portal-card">
         <div>
@@ -341,6 +356,12 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
       </span>
       <span>HOME</span>
+    </a>
+    <a href="/leaderboard.html" class="bottom-cyber-item">
+      <span class="bottom-cyber-icon" style="display: inline-flex; align-items: center; justify-content: center;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+      </span>
+      <span>RANKS</span>
     </a>
     <a href="/player.html" class="bottom-cyber-item">
       <span class="bottom-cyber-icon" style="display: inline-flex; align-items: center; justify-content: center;">

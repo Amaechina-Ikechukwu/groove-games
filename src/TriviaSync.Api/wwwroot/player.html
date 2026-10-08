@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Groove - Player Buzzer</title>
-  <link rel="stylesheet" href="/css/style.css?v=2.2">
+  <link rel="stylesheet" href="/css/style.css?v=3.0">
   <style>
     body {
       background: var(--bg-dark);
@@ -240,11 +240,16 @@
   <!-- Top Mobile Bar -->
   <header class="mobile-top-bar">
     <a href="/" class="top-action-btn" title="Back to Home">‹</a>
-    <div class="top-stream-title">TRIVIA ARENA</div>
-    <button onclick="openPlayerTournamentModal()" class="hud-pill score-pill" style="font-size: 0.75rem; padding: 0.25rem 0.65rem; cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; flex-shrink: 0;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path><path d="M6 4h12v7a6 6 0 0 1-12 0V4z"></path></svg>
-      <span>STANDINGS</span>
-    </button>
+    <div class="top-stream-title">GROOVE ARENA</div>
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <a href="/leaderboard.html" class="hud-pill" style="font-size: 0.75rem; padding: 0.3rem 0.65rem; text-decoration: none; display: flex; align-items: center; gap: 0.3rem;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        <span>STANDINGS</span>
+      </a>
+      <button id="playerLogoutBtn" onclick="playerLogout()" style="display: none; background: rgba(255, 42, 85, 0.15); border: 1px solid rgba(255, 42, 85, 0.3); color: var(--tile-red); cursor: pointer; padding: 0.3rem 0.6rem; border-radius: 6px; font-family: var(--font-display); font-weight: 800; font-size: 0.75rem;">
+        LOGOUT
+      </button>
+    </div>
   </header>
 
   <!-- Player HUD: Name, Streak, and Cumulative Score -->
@@ -267,8 +272,76 @@
   <!-- Dynamic Game Stage Viewport -->
   <main class="mobile-viewport">
 
+    <!-- STAGE 0: CONTENDER AUTH (SIGN IN / REGISTER) -->
+    <div id="stageAuth" class="stage-wrapper active">
+      <div class="stream-preview-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+          <div style="font-family: var(--font-display); font-size: 0.8rem; color: var(--neon-lime); font-weight: 800; letter-spacing: 1px;">
+            SECURITY VERIFICATION
+          </div>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        </div>
+
+        <h1 style="font-family: var(--font-display); font-size: 1.85rem; font-weight: 900; letter-spacing: -0.5px; text-transform: uppercase; margin-bottom: 0.35rem;">
+          PLAYER <span style="color: var(--neon-lime);">LOGIN</span>
+        </h1>
+        <p style="color: var(--text-secondary); font-size: 0.88rem; margin-bottom: 1.25rem;">
+          Sign in or register your contender account to access live match buzzers.
+        </p>
+
+        <!-- Toggle Sign In vs Register -->
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; background: var(--bg-surface-elevated); padding: 0.3rem; border-radius: var(--radius-button); border: 1px solid var(--border-cyber);">
+          <button type="button" id="tabPlayerLoginBtn" onclick="switchPlayerAuthTab('login')" class="tab-btn active" style="flex: 1; padding: 0.55rem; font-size: 0.85rem; justify-content: center;">
+            SIGN IN
+          </button>
+          <button type="button" id="tabPlayerRegisterBtn" onclick="switchPlayerAuthTab('register')" class="tab-btn" style="flex: 1; padding: 0.55rem; font-size: 0.85rem; justify-content: center;">
+            NEW CONTENDER
+          </button>
+        </div>
+
+        <div id="playerAuthAlert" style="display: none; margin-bottom: 1rem; padding: 0.75rem 1rem; border-radius: var(--radius-button); font-weight: 700; font-size: 0.85rem; background: rgba(255, 42, 85, 0.15); border: 1px solid var(--tile-red); color: var(--tile-red);"></div>
+
+        <!-- LOGIN FORM -->
+        <form id="playerLoginForm" onsubmit="handlePlayerLogin(event)">
+          <div style="margin-bottom: 0.85rem;">
+            <input type="email" id="playerLoginEmail" class="form-input-cyber" placeholder="Contender Email" value="player@groove.live" required>
+          </div>
+          <div style="margin-bottom: 1.25rem;">
+            <input type="password" id="playerLoginPassword" class="form-input-cyber" placeholder="Password" value="player123" required>
+          </div>
+          <button type="submit" class="btn-cyber btn-lime" style="width: 100%; font-size: 1.1rem; padding: 0.95rem;">
+            SIGN IN & PROCEED
+          </button>
+        </form>
+
+        <!-- REGISTER FORM -->
+        <form id="playerRegisterForm" onsubmit="handlePlayerRegister(event)" style="display: none;">
+          <div style="margin-bottom: 0.85rem;">
+            <input type="text" id="playerRegisterName" class="form-input-cyber" placeholder="Full Legal / Gamer Name" required>
+          </div>
+          <div style="margin-bottom: 0.85rem;">
+            <input type="email" id="playerRegisterEmail" class="form-input-cyber" placeholder="Email Address" required>
+          </div>
+          <div style="margin-bottom: 1.25rem;">
+            <input type="password" id="playerRegisterPassword" class="form-input-cyber" placeholder="Create Password (min 4 chars)" required>
+          </div>
+          <button type="submit" class="btn-cyber btn-lime" style="width: 100%; font-size: 1.1rem; padding: 0.95rem;">
+            CREATE ACCOUNT
+          </button>
+        </form>
+
+        <div style="margin-top: 1.25rem; padding: 0.75rem; background: var(--bg-surface-elevated); border-radius: 8px; border: 1px solid var(--border-cyber); font-size: 0.8rem; color: var(--text-muted); text-align: left;">
+          <strong style="color: var(--text-secondary); display: block; margin-bottom: 0.35rem;">TEST ACCOUNTS:</strong>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button type="button" onclick="setPlayerDemo('player@groove.live', 'player123')" class="hud-pill" style="cursor: pointer; font-size: 0.75rem;">Alex: player@groove.live</button>
+            <button type="button" onclick="setPlayerDemo('contender@groove.live', 'contender123')" class="hud-pill" style="cursor: pointer; font-size: 0.75rem;">Sarah: contender@groove.live</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- STAGE 1: PIN & IDENTITY ENTRY -->
-    <div id="stageJoin" class="stage-wrapper active">
+    <div id="stageJoin" class="stage-wrapper">
       <div class="stream-preview-card">
         <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 0.75rem;">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
@@ -445,11 +518,17 @@
         <button onclick="closePlayerTournamentModal()" class="btn-cyber btn-dark" style="font-size: 1.1rem; padding: 0.35rem 0.75rem;">✕</button>
       </div>
 
-      <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
-        Cumulative points, accuracy %, and winning streaks across all games and sessions under this host.
-      </p>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0;">
+          Cumulative points across all sessions under this host.
+        </p>
+        <a href="/leaderboard.html" target="_blank" class="btn-cyber btn-lime" style="font-size: 0.75rem; padding: 0.35rem 0.75rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          OPEN FULL LEADERBOARD
+        </a>
+      </div>
 
-      <div style="overflow-x: auto;">
+      <div class="table-responsive">
         <table class="data-table" style="font-size: 0.9rem;">
           <thead>
             <tr>
@@ -482,12 +561,18 @@
       </span>
       <span>BUZZER</span>
     </a>
-    <button onclick="openPlayerTournamentModal()" class="bottom-cyber-item" style="background: transparent; border: none; cursor: pointer;">
+    <a href="/leaderboard.html" class="bottom-cyber-item">
       <span class="bottom-cyber-icon" style="display: inline-flex; align-items: center; justify-content: center;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path><path d="M6 4h12v7a6 6 0 0 1-12 0V4z"></path></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
       </span>
       <span>STANDINGS</span>
-    </button>
+    </a>
+    <a href="/host.html" class="bottom-cyber-item">
+      <span class="bottom-cyber-icon" style="display: inline-flex; align-items: center; justify-content: center;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+      </span>
+      <span>STADIUM</span>
+    </a>
     <a href="/admin.html" class="bottom-cyber-item">
       <span class="bottom-cyber-icon" style="display: inline-flex; align-items: center; justify-content: center;">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
@@ -498,7 +583,7 @@
 
   <!-- SignalR & Client Logic -->
   <script src="/js/lib/signalr.min.js"></script>
-  <script src="/js/audio.js"></script>
-  <script src="/js/player.js"></script>
+  <script src="/js/audio.js?v=3.0"></script>
+  <script src="/js/player.js?v=3.0"></script>
 </body>
 </html>

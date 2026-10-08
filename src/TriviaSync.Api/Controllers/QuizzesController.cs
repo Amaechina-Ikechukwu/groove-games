@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TriviaSync.Api.Models;
 using TriviaSync.Api.Services;
@@ -25,6 +26,7 @@ public class QuizzesController : ControllerBase
         _logger = logger;
     }
 
+    [Authorize(Roles = "Admin,SuperAdmin")]
     [HttpPost("parse")]
     public ActionResult<QuizParseResult> ParseQuiz([FromBody] ParseQuizRequest request)
     {
@@ -37,6 +39,7 @@ public class QuizzesController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize(Roles = "Host,Admin,SuperAdmin")]
     [HttpGet]
     public async Task<ActionResult<List<Quiz>>> GetAllQuizzes()
     {
@@ -44,6 +47,7 @@ public class QuizzesController : ControllerBase
         return Ok(quizzes);
     }
 
+    [Authorize(Roles = "Host,Admin,SuperAdmin")]
     [HttpGet("{id}")]
     public async Task<ActionResult<Quiz>> GetQuizById(string id)
     {
@@ -55,6 +59,7 @@ public class QuizzesController : ControllerBase
         return Ok(quiz);
     }
 
+    [Authorize(Roles = "Admin,SuperAdmin")]
     [HttpPost]
     public async Task<ActionResult<Quiz>> SaveQuiz([FromBody] Quiz quiz)
     {
@@ -67,6 +72,7 @@ public class QuizzesController : ControllerBase
         return CreatedAtAction(nameof(GetQuizById), new { id = saved.Id }, saved);
     }
 
+    [Authorize(Roles = "Admin,SuperAdmin")]
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteQuiz(string id)
     {

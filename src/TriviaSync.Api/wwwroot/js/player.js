@@ -17,6 +17,154 @@ const TILE_CONFIGS = [
   { shape: '★', label: 'Orange Star' }
 ];
 
+function checkPlayerAuth() {
+  const token = sessionStorage.getItem('groove_player_token');
+  const name = sessionStorage.getItem('groove_player_name');
+  const email = sessionStorage.getItem('groove_player_email');
+  const nameDisplay = document.getElementById('playerDisplayName');
+  const logoutBtn = document.getElementById('playerLogoutBtn');
+
+  if (token && name) {
+    currentFullName = name;
+    currentIdentifier = email || '';
+    if (nameDisplay) nameDisplay.textContent = name;
+    if (logoutBtn) logoutBtn.style.display = 'inline-block';
+
+    const joinName = document.getElementById('joinName');
+    const joinId = document.getElementById('joinIdentifier');
+    if (joinName) joinName.value = name;
+    if (joinId && email) joinId.value = email;
+
+    // Show PIN entry stage
+    showStage('stageJoin');
+    return true;
+  } else {
+    if (nameDisplay) nameDisplay.textContent = 'GUEST';
+    if (logoutBtn) logoutBtn.style.display = 'none';
+    showStage('stageAuth');
+    return false;
+  }
+}
+
+function switchPlayerAuthTab(tab) {
+  const loginBtn = document.getElementById('tabPlayerLoginBtn');
+  const regBtn = document.getElementById('tabPlayerRegisterBtn');
+  const loginForm = document.getElementById('playerLoginForm');
+  const regForm = document.getElementById('playerRegisterForm');
+  const alertBox = document.getElementById('playerAuthAlert');
+  if (alertBox) alertBox.style.display = 'none';
+
+  if (tab === 'login') {
+    loginBtn.classList.add('active');
+    regBtn.classList.remove('active');
+    loginForm.style.display = 'block';
+    regForm.style.display = 'none';
+  } else {
+    loginBtn.classList.remove('active');
+    regBtn.classList.add('active');
+    loginForm.style.display = 'none';
+    regForm.style.display = 'block';
+  }
+}
+
+function setPlayerDemo(email, password) {
+  switchPlayerAuthTab('login');
+  document.getElementById('playerLoginEmail').value = email;
+  document.getElementById('playerLoginPassword').value = password;
+}
+
+async function handlePlayerLogin(e) {
+  e.preventDefault();
+  const email = document.getElementById('playerLoginEmail').value.trim();
+  const password = document.getElementById('playerLoginPassword').value.trim();
+  const alertBox = document.getElementById('playerAuthAlert');
+  if (alertBox) alertBox.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    if (res.ok) {
+      const auth = await res.json();
+      sessionStorage.setItem('groove_player_token', auth.token);
+      sessionStorage.setItem('groove_player_email', auth.email);
+      sessionStorage.setItem('groove_player_name', auth.displayName || email.split('@')[0]);
+      checkPlayerAuth();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      if (alertBox) {
+        alertBox.textContent = err.message || 'Login failed. Please check credentials.';
+        alertBox.style.display = 'block';
+      }
+    }
+  } catch (err) {
+    console.error(err);
+    if (alertBox) {
+      alertBox.textContent = 'Network error during player login.';
+      alertBox.style.display = 'block';
+    }
+  }
+}
+
+async function handlePlayerRegister(e) {
+  e.preventDefault();
+  const fullName = document.getElementById('playerRegisterName').value.trim();
+  const email = document.getElementById('playerRegisterEmail').value.trim();
+  const password = document.getElementById('playerRegisterPassword').value.trim();
+  const alertBox = document.getElementById('playerAuthAlert');
+  if (alertBox) alertBox.style.display = 'none';
+
+  if (!fullName || !email || !password) {
+    if (alertBox) {
+      alertBox.textContent = 'All fields are required.';
+      alertBox.style.display = 'block';
+    }
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fullName, email, password, role: 'Player' })
+    });
+
+    if (res.ok) {
+      const auth = await res.json();
+      sessionStorage.setItem('groove_player_token', auth.token);
+      sessionStorage.setItem('groove_player_email', auth.email);
+      sessionStorage.setItem('groove_player_name', auth.displayName || fullName);
+      checkPlayerAuth();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      if (alertBox) {
+        alertBox.textContent = err.message || 'Registration failed. Try a different email.';
+        alertBox.style.display = 'block';
+      }
+    }
+  } catch (err) {
+    console.error(err);
+    if (alertBox) {
+      alertBox.textContent = 'Network error during registration.';
+      alertBox.style.display = 'block';
+    }
+  }
+}
+
+function playerLogout() {
+  sessionStorage.removeItem('groove_player_token');
+  sessionStorage.removeItem('groove_player_name');
+  sessionStorage.removeItem('groove_player_email');
+  sessionStorage.removeItem('groove_pin');
+  if (connection && connection.state === signalR.HubConnectionState.Connected) {
+    connection.stop();
+  }
+  checkPlayerAuth();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // Check URL params for quick join
   const params = new URLSearchParams(window.location.search);
@@ -25,17 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('joinPin').value = pinParam.trim().toUpperCase();
   }
 
-  // Restore stored session if exists
-  const savedPin = sessionStorage.getItem('groove_pin') || sessionStorage.getItem('triviasync_pin');
-  const savedName = sessionStorage.getItem('groove_name') || sessionStorage.getItem('triviasync_name');
-  const savedId = sessionStorage.getItem('groove_id') || sessionStorage.getItem('triviasync_id');
-
-  if (savedPin && savedName) {
-    document.getElementById('joinPin').value = savedPin;
-    document.getElementById('joinName').value = savedName;
-    if (savedId) document.getElementById('joinIdentifier').value = savedId;
-  }
-
+  checkPlayerAuth();
   initSignalR();
 });
 
@@ -335,17 +473,30 @@ async function openPlayerTournamentModal() {
       players.forEach((p, idx) => {
         const isMe = (p.fullName === currentFullName);
         const tr = document.createElement('tr');
-        tr.className = 'row-card';
-        if (isMe) {
-          tr.style.border = '2px solid var(--neon-lime)';
-          tr.style.background = 'rgba(212, 255, 0, 0.12)';
-        }
+        tr.className = 'row-card' + (isMe ? ' highlight-me' : '');
+
+        const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : 'rank-other';
+        const rankIcon = idx === 0 
+          ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>#1`
+          : `#${idx + 1}`;
+
+        const acc = p.accuracyPercentage || 0;
+        const accClass = acc >= 80 ? 'accuracy-high' : acc >= 50 ? 'accuracy-mid' : 'accuracy-low';
+        const initials = (p.fullName || 'C').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+
         tr.innerHTML = `
-          <td><strong style="color: ${idx === 0 ? 'var(--neon-lime)' : '#fff'};">#${idx + 1}</strong></td>
-          <td><strong style="font-family:var(--font-display); ${isMe ? 'color:var(--neon-lime);' : ''}">${escapeHtml(p.fullName)} ${isMe ? '(You)' : ''}</strong></td>
-          <td><strong style="color:var(--neon-lime);">${p.totalPointsAllTime.toLocaleString()}</strong></td>
-          <td>${p.quizzesPlayed}</td>
-          <td><span style="color:#2ecc71;">${p.accuracyPercentage}%</span></td>
+          <td><span class="rank-badge ${rankClass}">${rankIcon}</span></td>
+          <td>
+            <div class="contender-cell">
+              <div class="contender-avatar">${initials}</div>
+              <div class="contender-name-text">
+                ${escapeHtml(p.fullName)} ${isMe ? '<span style="color:var(--neon-lime); font-size:0.8rem; margin-left:0.3rem;">(YOU)</span>' : ''}
+              </div>
+            </div>
+          </td>
+          <td><span class="score-cyber">${(p.totalPointsAllTime || 0).toLocaleString()} PTS</span></td>
+          <td style="font-weight: 700; color: #fff;">${p.quizzesPlayed || 0}</td>
+          <td><span class="accuracy-pill ${accClass}">${acc}%</span></td>
         `;
         tbody.appendChild(tr);
       });

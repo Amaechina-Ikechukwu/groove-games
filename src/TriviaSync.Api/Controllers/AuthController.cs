@@ -30,6 +30,24 @@ public class AuthController : ControllerBase
         }
     }
 
+    [HttpPost("register")]
+    public ActionResult<AuthResponse> Register([FromBody] RegisterRequest request)
+    {
+        try
+        {
+            var response = _authService.Register(request);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     [HttpGet("me")]
     public ActionResult GetCurrentUser()
     {
@@ -43,13 +61,14 @@ public class AuthController : ControllerBase
         return Ok(new { isAuthenticated = false, role = "Guest" });
     }
 
+    [Authorize(Roles = "Admin,SuperAdmin")]
     [HttpGet("users")]
     public ActionResult<List<UserDto>> GetUsers()
     {
-        // Allow in admin view
         return Ok(_authService.GetAllUsers());
     }
 
+    [Authorize(Roles = "Admin,SuperAdmin")]
     [HttpPost("assign-role")]
     public ActionResult AssignRole([FromBody] RoleAssignRequest request)
     {

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TriviaSync.Api.Models;
 using TriviaSync.Api.Services;
@@ -49,6 +50,7 @@ public class SessionsController : ControllerBase
         _logger = logger;
     }
 
+    [Authorize(Roles = "Host,Admin,SuperAdmin")]
     [HttpPost]
     public async Task<ActionResult> CreateSession([FromBody] CreateSessionRequest request)
     {
@@ -292,6 +294,7 @@ public class SessionsController : ControllerBase
         });
     }
 
+    [Authorize(Roles = "Host,Admin,SuperAdmin")]
     [HttpDelete("{pin}")]
     public ActionResult CloseSession(string pin)
     {

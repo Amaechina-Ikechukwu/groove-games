@@ -6,6 +6,14 @@ public class LoginRequest
     public string Password { get; set; } = string.Empty;
 }
 
+public class RegisterRequest
+{
+    public string Email { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Role { get; set; } = "Player"; // "Player" or "Host"
+}
+
 public class AuthResponse
 {
     public string Token { get; set; } = string.Empty;

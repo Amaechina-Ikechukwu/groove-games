@@ -13,6 +13,8 @@ public class Player
     public int Rank { get; set; } = 1;
     public int CurrentStreak { get; set; } = 0;
     public int HighestStreak { get; set; } = 0;
+    public int CorrectAnswers { get; set; } = 0;
+    public int TotalAnswers { get; set; } = 0;
     public bool IsConnected { get; set; } = true;
     public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
     public DateTime LastActive { get; set; } = DateTime.UtcNow;
