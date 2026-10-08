@@ -73,10 +73,68 @@ function hostLogout() {
   openHostAuthModal();
 }
 
+let hostOnboardStep = 1;
+
+function openHostOnboarding() {
+  hostOnboardStep = 1;
+  updateHostOnboardView();
+  const modal = document.getElementById('hostOnboardingModal');
+  if (modal) modal.classList.add('active');
+}
+
+function closeHostOnboarding(e) {
+  if (e && e.target !== e.currentTarget && !e.target.classList.contains('btn-cyber')) return;
+  const modal = document.getElementById('hostOnboardingModal');
+  if (modal) modal.classList.remove('active');
+  localStorage.setItem('groove_host_onboarded', 'true');
+  if (!checkHostAuth()) {
+    openHostAuthModal();
+  }
+}
+
+function updateHostOnboardView() {
+  for (let i = 1; i <= 3; i++) {
+    const slide = document.getElementById(`hSlide${i}`);
+    const dot = document.getElementById(`hDot${i}`);
+    if (slide) slide.classList.toggle('active', i === hostOnboardStep);
+    if (dot) dot.classList.toggle('active', i === hostOnboardStep);
+  }
+
+  const prevBtn = document.getElementById('btnHostOnboardPrev');
+  const nextBtn = document.getElementById('btnHostOnboardNext');
+  const pill = document.getElementById('hostStepPill');
+
+  if (prevBtn) prevBtn.style.visibility = (hostOnboardStep === 1) ? 'hidden' : 'visible';
+  if (nextBtn) nextBtn.textContent = (hostOnboardStep === 3) ? 'SIGN IN & DIRECT ARENA →' : 'NEXT →';
+
+  if (pill) {
+    if (hostOnboardStep === 1) pill.textContent = 'STEP 1 OF 3 • FACILITATOR OVERVIEW';
+    if (hostOnboardStep === 2) pill.textContent = 'STEP 2 OF 3 • ROOMS & TOURNAMENTS';
+    if (hostOnboardStep === 3) pill.textContent = 'STEP 3 OF 3 • LIVE DIRECTING & PODIUM';
+  }
+}
+
+function nextHostOnboardStep() {
+  if (hostOnboardStep < 3) {
+    hostOnboardStep++;
+    updateHostOnboardView();
+  } else {
+    closeHostOnboarding();
+  }
+}
+
+function prevHostOnboardStep() {
+  if (hostOnboardStep > 1) {
+    hostOnboardStep--;
+    updateHostOnboardView();
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const isAuth = checkHostAuth();
-  // If not logged in, ask the user ASAP
-  if (!isAuth) {
+  if (!localStorage.getItem('groove_host_onboarded')) {
+    openHostOnboarding();
+  } else if (!isAuth) {
     openHostAuthModal();
   }
 

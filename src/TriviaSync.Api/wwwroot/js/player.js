@@ -171,6 +171,60 @@ function playerLogout() {
   checkPlayerAuth();
 }
 
+let playerOnboardStep = 1;
+
+function openPlayerOnboarding() {
+  playerOnboardStep = 1;
+  updatePlayerOnboardView();
+  const modal = document.getElementById('playerOnboardingModal');
+  if (modal) modal.classList.add('active');
+}
+
+function closePlayerOnboarding(e) {
+  if (e && e.target !== e.currentTarget && !e.target.classList.contains('btn-cyber')) return;
+  const modal = document.getElementById('playerOnboardingModal');
+  if (modal) modal.classList.remove('active');
+  localStorage.setItem('groove_player_onboarded', 'true');
+}
+
+function updatePlayerOnboardView() {
+  for (let i = 1; i <= 3; i++) {
+    const slide = document.getElementById(`pSlide${i}`);
+    const dot = document.getElementById(`pDot${i}`);
+    if (slide) slide.classList.toggle('active', i === playerOnboardStep);
+    if (dot) dot.classList.toggle('active', i === playerOnboardStep);
+  }
+
+  const prevBtn = document.getElementById('btnPlayerOnboardPrev');
+  const nextBtn = document.getElementById('btnPlayerOnboardNext');
+  const pill = document.getElementById('playerStepPill');
+
+  if (prevBtn) prevBtn.style.visibility = (playerOnboardStep === 1) ? 'hidden' : 'visible';
+  if (nextBtn) nextBtn.textContent = (playerOnboardStep === 3) ? 'READY TO PLAY ✓' : 'NEXT →';
+
+  if (pill) {
+    if (playerOnboardStep === 1) pill.textContent = 'STEP 1 OF 3 • CONTENDER SETUP';
+    if (playerOnboardStep === 2) pill.textContent = 'STEP 2 OF 3 • BUZZER & SCORING';
+    if (playerOnboardStep === 3) pill.textContent = 'STEP 3 OF 3 • STREAKS & PODIUMS';
+  }
+}
+
+function nextPlayerOnboardStep() {
+  if (playerOnboardStep < 3) {
+    playerOnboardStep++;
+    updatePlayerOnboardView();
+  } else {
+    closePlayerOnboarding();
+  }
+}
+
+function prevPlayerOnboardStep() {
+  if (playerOnboardStep > 1) {
+    playerOnboardStep--;
+    updatePlayerOnboardView();
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // Check URL params for quick join via QR Code or direct link
   const params = new URLSearchParams(window.location.search);
@@ -189,7 +243,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  checkPlayerAuth();
+  const isAuth = checkPlayerAuth();
+  if (!localStorage.getItem('groove_player_onboarded') || !isAuth) {
+    openPlayerOnboarding();
+  }
+
   initSignalR();
 });
 

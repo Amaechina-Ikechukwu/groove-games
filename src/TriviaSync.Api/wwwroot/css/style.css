@@ -1327,5 +1327,108 @@ button svg {
   }
 }
 
+/* ==========================================================================
+   Interactive Onboarding System for Player, Host, and Admin
+   ========================================================================== */
+.onboarding-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 12, 15, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  z-index: 999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.onboarding-overlay.active {
+  display: flex;
+}
+
+.onboarding-card {
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-cyber-active);
+  border-radius: var(--radius-card);
+  max-width: 580px;
+  width: 100%;
+  padding: 2.25rem 2rem;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(212, 255, 0, 0.15);
+  position: relative;
+  animation: popIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.onboarding-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.onboarding-step-pill {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.75rem;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-cyber);
+  color: var(--neon-lime);
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-pill);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.onboarding-step-slide {
+  display: none;
+}
+
+.onboarding-step-slide.active {
+  display: block;
+  animation: popIn 0.25s ease;
+}
+
+.onboarding-stepper-dots {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.stepper-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transition: all 0.2s ease;
+}
+
+.stepper-dot.active {
+  width: 24px;
+  border-radius: 4px;
+  background: var(--neon-lime);
+  box-shadow: 0 0 10px var(--neon-lime-glow);
+}
+
+.onboarding-visual-box {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-cyber);
+  border-radius: var(--radius-button);
+  padding: 1.25rem;
+  margin: 1.25rem 0;
+  text-align: center;
+}
+
+.onboarding-nav-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-cyber);
+}
+
 
 

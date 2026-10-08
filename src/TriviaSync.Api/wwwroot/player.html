@@ -258,6 +258,10 @@
     <a href="/" class="top-action-btn" title="Back to Home">‹</a>
     <div class="top-stream-title">GROOVE ARENA</div>
     <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <button type="button" onclick="openPlayerOnboarding()" class="hud-pill" style="cursor: pointer; font-size: 0.75rem; padding: 0.3rem 0.65rem; background: rgba(212, 255, 0, 0.1); border-color: var(--neon-lime); color: var(--neon-lime); display: flex; align-items: center; gap: 0.3rem;" title="How to Play & Onboarding Guide">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        <span>GUIDE</span>
+      </button>
       <a href="/leaderboard.html" class="hud-pill" style="font-size: 0.75rem; padding: 0.3rem 0.65rem; text-decoration: none; display: flex; align-items: center; gap: 0.3rem;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
         <span>STANDINGS</span>
@@ -563,6 +567,107 @@
             <!-- Dynamically populated rows -->
           </tbody>
         </table>
+      </div>
+    </div>
+  <!-- MODAL: PLAYER INTERACTIVE ONBOARDING -->
+  <div id="playerOnboardingModal" class="onboarding-overlay" onclick="closePlayerOnboarding(event)">
+    <div class="onboarding-card" onclick="event.stopPropagation()">
+      <div class="onboarding-header">
+        <span id="playerStepPill" class="onboarding-step-pill">STEP 1 OF 3 • CONTENDER SETUP</span>
+        <div class="onboarding-stepper-dots">
+          <div class="stepper-dot active" id="pDot1"></div>
+          <div class="stepper-dot" id="pDot2"></div>
+          <div class="stepper-dot" id="pDot3"></div>
+        </div>
+      </div>
+
+      <!-- Slide 1: Welcome & Account Setup -->
+      <div class="onboarding-step-slide active" id="pSlide1">
+        <div style="width: 52px; height: 52px; background: rgba(212, 255, 0, 0.1); border: 2px solid var(--neon-lime); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        </div>
+        <h2 style="font-family: var(--font-display); font-size: 1.6rem; font-weight: 900; text-transform: uppercase; margin-bottom: 0.5rem;">
+          WELCOME, <span style="color: var(--neon-lime);">CONTENDER!</span>
+        </h2>
+        <p style="color: var(--text-secondary); font-size: 0.92rem; line-height: 1.5; margin-bottom: 1rem;">
+          Groove Arena turns your mobile phone into a sub-second live tournament buzzer.
+        </p>
+
+        <div class="onboarding-visual-box" style="text-align: left;">
+          <div style="display: flex; gap: 0.75rem; align-items: flex-start; margin-bottom: 0.75rem;">
+            <span style="color: var(--neon-lime); font-size: 1.1rem; line-height: 1;">✦</span>
+            <div style="font-size: 0.88rem; color: #fff;"><strong>Fast Sign-In / Register:</strong> Enter your email and password to lock in your official gamer profile.</div>
+          </div>
+          <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+            <span style="color: var(--neon-lime); font-size: 1.1rem; line-height: 1;">✦</span>
+            <div style="font-size: 0.88rem; color: #fff;"><strong>Permanent Leaderboards:</strong> Your points, game history, and accuracy are saved across all matches under this tournament!</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 2: Asymmetric Buzzer & Scoring -->
+      <div class="onboarding-step-slide" id="pSlide2">
+        <div style="width: 52px; height: 52px; background: rgba(0, 240, 255, 0.1); border: 2px solid var(--neon-cyan); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--neon-cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        </div>
+        <h2 style="font-family: var(--font-display); font-size: 1.6rem; font-weight: 900; text-transform: uppercase; margin-bottom: 0.5rem;">
+          RAPID BUZZER & SCORING
+        </h2>
+        <p style="color: var(--text-secondary); font-size: 0.92rem; line-height: 1.5; margin-bottom: 1rem;">
+          Questions are broadcast on the Stadium screen. Match colors and geometric shapes to answer.
+        </p>
+
+        <!-- Preview Tiles Grid -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin: 1rem 0;">
+          <div style="background: linear-gradient(135deg, #FF2A55, #D81B43); padding: 0.6rem; border-radius: 12px 6px 6px 6px; text-align: center; color: #fff; font-weight: 800; font-size: 0.85rem;">▲ Crimson</div>
+          <div style="background: linear-gradient(135deg, #0088FF, #0066CC); padding: 0.6rem; border-radius: 6px 14px 6px 6px; text-align: center; color: #fff; font-weight: 800; font-size: 0.85rem;">◆ Cyan</div>
+          <div style="background: linear-gradient(135deg, #FFB800, #D49A00); padding: 0.6rem; border-radius: 6px 6px 6px 14px; text-align: center; color: #fff; font-weight: 800; font-size: 0.85rem;">● Amber</div>
+          <div style="background: linear-gradient(135deg, #00E676, #00B359); padding: 0.6rem; border-radius: 6px 6px 14px 6px; text-align: center; color: #fff; font-weight: 800; font-size: 0.85rem;">■ Lime</div>
+        </div>
+
+        <p style="font-size: 0.85rem; color: var(--text-muted); text-align: center;">
+          ⚡ <strong>Speed Counts:</strong> Max 1,000 points per question, decaying smoothly with the countdown.
+        </p>
+      </div>
+
+      <!-- Slide 3: Streaks & Podium -->
+      <div class="onboarding-step-slide" id="pSlide3">
+        <div style="width: 52px; height: 52px; background: rgba(255, 184, 0, 0.12); border: 2px solid #FFA502; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FFA502" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+        </div>
+        <h2 style="font-family: var(--font-display); font-size: 1.6rem; font-weight: 900; text-transform: uppercase; margin-bottom: 0.5rem;">
+          STREAKS & PODIUMS
+        </h2>
+        <p style="color: var(--text-secondary); font-size: 0.92rem; line-height: 1.5; margin-bottom: 1rem;">
+          Stack consecutive correct answers to activate streak point multipliers and climb to the #1 podium!
+        </p>
+
+        <div class="onboarding-visual-box" style="display: flex; justify-content: space-around; align-items: center;">
+          <div>
+            <div style="font-size: 1.4rem; font-family: var(--font-display); font-weight: 900; color: #FFA502;">🔥 STREAK</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">Bonus Multiplier</div>
+          </div>
+          <div style="width: 1px; height: 40px; background: var(--border-cyber);"></div>
+          <div>
+            <div style="font-size: 1.4rem; font-family: var(--font-display); font-weight: 900; color: var(--neon-lime);">🏆 PODIUM</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">Top 3 Live Ranks</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation buttons -->
+      <div class="onboarding-nav-row">
+        <button type="button" id="btnPlayerOnboardPrev" onclick="prevPlayerOnboardStep()" class="btn-cyber btn-dark" style="visibility: hidden; font-size: 0.85rem; padding: 0.6rem 1.1rem;">
+          ← BACK
+        </button>
+        <div style="display: flex; gap: 0.5rem;">
+          <button type="button" onclick="closePlayerOnboarding()" class="btn-cyber btn-dark" style="font-size: 0.85rem; padding: 0.6rem 1rem;">
+            SKIP
+          </button>
+          <button type="button" id="btnPlayerOnboardNext" onclick="nextPlayerOnboardStep()" class="btn-cyber btn-lime" style="font-size: 0.85rem; padding: 0.6rem 1.35rem;">
+            NEXT →
+          </button>
+        </div>
       </div>
     </div>
   </div>
