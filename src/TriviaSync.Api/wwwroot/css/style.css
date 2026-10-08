@@ -46,9 +46,9 @@
 
   /* Asymmetric Radii inspired by Streamo UI */
   --radius-streamo: 28px 28px 8px 28px;
-  --radius-card: 24px;
-  --radius-button: 16px;
-  --radius-pill: 9999px;
+  --radius-card: 20px;
+  --radius-button: 10px;
+  --radius-pill: 8px;
 
   /* Shadows & Glows */
   --shadow-cyber: 0 12px 35px -8px rgba(0, 0, 0, 0.75);
@@ -241,27 +241,23 @@ body {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-.btn-danger {
-  background: var(--tile-red);
-  color: #fff;
-  box-shadow: 0 4px 20px var(--tile-red-glow);
+.btn-cyber svg,
+button svg {
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  max-width: 1.25rem !important;
+  max-height: 1.25rem !important;
+  flex-shrink: 0 !important;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  fill: none;
+  display: inline-block;
+  vertical-align: middle;
 }
 
-/* Streamo Live Badge */
+/* Hide legacy live-pill elements */
 .live-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.9rem;
-  border-radius: var(--radius-pill);
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  font-family: var(--font-display);
-  font-size: 0.8rem;
-  font-weight: 800;
-  letter-spacing: 1px;
-  color: #fff;
-  text-transform: uppercase;
+  display: none !important;
 }
 
 .live-dot {
@@ -546,4 +542,40 @@ body {
     text-align: left;
     font-size: 1.1rem;
   }
+}
+
+/* ==========================================================================
+   Modern SVG Icons System (Replacing Emojis)
+   ========================================================================== */
+.icon-svg {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.18em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+.icon-svg.filled {
+  fill: currentColor;
+  stroke: none;
+}
+
+.icon-svg-sm {
+  width: 0.95em;
+  height: 0.95em;
+}
+
+.icon-svg-lg {
+  width: 1.8rem;
+  height: 1.8rem;
+}
+
+.icon-svg-xl {
+  width: 3.25rem;
+  height: 3.25rem;
 }

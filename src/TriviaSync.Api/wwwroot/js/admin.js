@@ -1,5 +1,18 @@
-// TriviaSync Admin Deck Logic
+// Groove Admin Deck Logic - Secure Auth & Vector Icon System
 let currentParsedQuiz = null;
+
+// Modern SVG Icons (Replacing Cartoony Emojis)
+const ICONS = {
+  trash: `<svg class="icon-svg" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`,
+  check: `<svg class="icon-svg" style="color: var(--neon-lime);" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
+  cross: `<svg class="icon-svg" style="color: var(--tile-red);" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
+  flame: `<svg class="icon-svg" style="color: #FFA502;" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>`,
+  zap: `<svg class="icon-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`,
+  play: `<svg class="icon-svg" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`,
+  lock: `<svg class="icon-svg" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
+  shield: `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>`,
+  save: `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>`
+};
 
 const SAMPLES = {
   1: `Q1: What does API stand for?
@@ -60,12 +73,93 @@ Points: 1000`
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+  checkAdminAuth();
   insertTemplate(1);
-  loadSavedQuizzesList();
-  loadPersistentLeaderboard();
-  loadUsersList();
 });
 
+// ============================================================================
+// ADMIN AUTHENTICATION GUARD
+// ============================================================================
+function checkAdminAuth() {
+  const token = sessionStorage.getItem('groove_admin_token');
+  const email = sessionStorage.getItem('groove_admin_email') || 'admin@groove.live';
+
+  const authGate = document.getElementById('adminAuthGate');
+  const mainContent = document.getElementById('adminMainContent');
+  const userBadge = document.getElementById('adminUserBadge');
+  const emailDisplay = document.getElementById('adminEmailDisplay');
+
+  if (token) {
+    authGate.style.display = 'none';
+    mainContent.style.display = 'block';
+    userBadge.style.display = 'inline-flex';
+    emailDisplay.textContent = email;
+
+    loadSavedQuizzesList();
+    loadPersistentLeaderboard();
+    loadUsersList();
+  } else {
+    authGate.style.display = 'flex';
+    mainContent.style.display = 'none';
+    userBadge.style.display = 'none';
+  }
+}
+
+async function handleAdminLogin(e) {
+  e.preventDefault();
+  const email = document.getElementById('adminLoginEmail').value.trim();
+  const password = document.getElementById('adminLoginPassword').value.trim();
+  const alertBox = document.getElementById('adminAuthAlert');
+  alertBox.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    if (res.ok) {
+      const auth = await res.json();
+      if (auth.role !== 'Admin' && auth.role !== 'SuperAdmin') {
+        alertBox.textContent = `Access denied. Account '${auth.email}' has role '${auth.role}', but Administrator privilege is required.`;
+        alertBox.style.display = 'block';
+        return;
+      }
+
+      sessionStorage.setItem('groove_admin_token', auth.token);
+      sessionStorage.setItem('groove_admin_email', auth.email);
+      checkAdminAuth();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alertBox.textContent = err.message || 'Authentication failed. Please verify your Administrator credentials.';
+      alertBox.style.display = 'block';
+    }
+  } catch (err) {
+    console.error('Admin login error:', err);
+    alertBox.textContent = 'Network error while attempting authentication.';
+    alertBox.style.display = 'block';
+  }
+}
+
+function adminLogout() {
+  sessionStorage.removeItem('groove_admin_token');
+  sessionStorage.removeItem('groove_admin_email');
+  checkAdminAuth();
+}
+
+function getAuthHeaders() {
+  const token = sessionStorage.getItem('groove_admin_token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+// ============================================================================
+// TABS & TEMPLATES
+// ============================================================================
 function switchAdminTab(tabId) {
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -97,6 +191,9 @@ function clearRawText() {
   document.getElementById('parseStatusAlert').style.display = 'none';
 }
 
+// ============================================================================
+// PARSER & PREVIEW
+// ============================================================================
 async function runParser() {
   const rawText = document.getElementById('rawQuizTextInput').value;
   const title = document.getElementById('quizTitleInput').value.trim() || 'Untitled Quiz';
@@ -110,7 +207,7 @@ async function runParser() {
   try {
     const res = await fetch('/api/quizzes/parse', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ rawText, title })
     });
 
@@ -121,7 +218,11 @@ async function runParser() {
       alertBox.style.background = 'rgba(0, 230, 118, 0.15)';
       alertBox.style.border = '1px solid var(--neon-lime)';
       alertBox.style.color = 'var(--neon-lime)';
-      alertBox.innerHTML = `✔ Parsed <strong>${data.quiz.questions.length}</strong> questions successfully!`;
+      alertBox.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          ${ICONS.check}
+          <span>Parsed <strong>${data.quiz.questions.length}</strong> questions successfully!</span>
+        </div>`;
 
       currentParsedQuiz = data.quiz;
       renderParsedPreview(currentParsedQuiz);
@@ -131,7 +232,11 @@ async function runParser() {
       alertBox.style.background = 'rgba(255, 42, 85, 0.15)';
       alertBox.style.border = '1px solid var(--tile-red)';
       alertBox.style.color = 'var(--tile-red)';
-      alertBox.innerHTML = `❌ Errors parsing questions:<br>` + (data.errors || []).map(e => `• ${e}`).join('<br>');
+      alertBox.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;">
+          ${ICONS.cross}
+          <strong>Errors parsing questions:</strong>
+        </div>` + (data.errors || []).map(e => `• ${e}`).join('<br>');
     }
   } catch (err) {
     console.error('Parser request failed:', err);
@@ -156,7 +261,9 @@ function renderParsedPreview(quiz) {
         <div class="parsed-choice-item ${isCorrect ? 'is-correct' : ''}">
           <input type="radio" name="correctChoice_${qIdx}" ${isCorrect ? 'checked' : ''} onchange="setCorrectChoice(${qIdx}, ${cIdx})" style="accent-color: var(--neon-lime); cursor: pointer;">
           <input type="text" class="form-input-cyber" value="${escapeHtml(choice)}" oninput="updateChoiceText(${qIdx}, ${cIdx}, this.value)" style="padding: 0.4rem 0.75rem; font-size: 0.95rem;">
-          <button onclick="deleteChoice(${qIdx}, ${cIdx})" class="btn-cyber btn-dark" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; color: var(--tile-red);" title="Delete choice">✕</button>
+          <button onclick="deleteChoice(${qIdx}, ${cIdx})" class="btn-cyber btn-dark" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; color: var(--tile-red);" title="Delete choice">
+            ${ICONS.cross}
+          </button>
         </div>
       `;
     });
@@ -169,7 +276,9 @@ function renderParsedPreview(quiz) {
           <input type="number" value="${q.timeLimitSeconds || 20}" onchange="updateTimeLimit(${qIdx}, this.value)" class="form-input-cyber" style="width: 70px; padding: 0.25rem 0.5rem; font-size: 0.85rem;">
           <label style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.25rem;">Pts:</label>
           <input type="number" value="${q.points || 1000}" onchange="updatePoints(${qIdx}, this.value)" class="form-input-cyber" style="width: 80px; padding: 0.25rem 0.5rem; font-size: 0.85rem;">
-          <button onclick="deleteQuestion(${qIdx})" class="btn-cyber btn-dark" style="padding: 0.35rem 0.6rem; color: var(--tile-red);" title="Delete Question">🗑️</button>
+          <button onclick="deleteQuestion(${qIdx})" class="btn-cyber btn-dark" style="padding: 0.35rem 0.6rem; color: var(--tile-red);" title="Delete Question">
+            ${ICONS.trash}
+          </button>
         </div>
       </div>
 
@@ -251,6 +360,9 @@ function deleteQuestion(qIdx) {
   }
 }
 
+// ============================================================================
+// PERSISTENCE & CRUD
+// ============================================================================
 async function saveParsedQuizToDatabase() {
   if (!currentParsedQuiz || currentParsedQuiz.questions.length === 0) {
     alert('No questions to save.');
@@ -262,7 +374,7 @@ async function saveParsedQuizToDatabase() {
   try {
     const res = await fetch('/api/quizzes', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(currentParsedQuiz)
     });
 
@@ -283,7 +395,7 @@ async function saveParsedQuizToDatabase() {
 
 async function loadSavedQuizzesList() {
   try {
-    const res = await fetch('/api/quizzes');
+    const res = await fetch('/api/quizzes', { headers: getAuthHeaders() });
     if (res.ok) {
       const quizzes = await res.json();
       document.getElementById('savedQuizCountBadge').textContent = quizzes.length;
@@ -314,11 +426,11 @@ async function loadSavedQuizzesList() {
           </p>
 
           <div style="display: flex; gap: 0.75rem;">
-            <button onclick="launchRoomDirectly('${q.id}')" class="btn-cyber btn-lime" style="flex: 1; font-size: 0.9rem; padding: 0.65rem 1rem;">
-              🚀 LAUNCH ARENA
+            <button onclick="launchRoomDirectly('${q.id}')" class="btn-cyber btn-lime" style="flex: 1; font-size: 0.9rem; padding: 0.65rem 1rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;">
+              ${ICONS.play} LAUNCH ARENA
             </button>
             <button onclick="deleteQuizBank('${q.id}')" class="btn-cyber btn-dark" style="color: var(--tile-red); padding: 0.65rem 1rem;" title="Delete Quiz">
-              🗑️
+              ${ICONS.trash}
             </button>
           </div>
         `;
@@ -334,7 +446,7 @@ async function launchRoomDirectly(quizId) {
   try {
     const res = await fetch('/api/sessions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         quizId: quizId,
         hostId: 'admin_launcher',
@@ -356,7 +468,10 @@ async function launchRoomDirectly(quizId) {
 async function deleteQuizBank(quizId) {
   if (confirm('Permanently delete this quiz bank?')) {
     try {
-      const res = await fetch(`/api/quizzes/${quizId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/quizzes/${quizId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         loadSavedQuizzesList();
       }
@@ -371,7 +486,9 @@ async function loadPersistentLeaderboard() {
   const org = document.getElementById('leaderboardOrgSelect')?.value || '';
 
   try {
-    const res = await fetch(`/api/leaderboard?search=${encodeURIComponent(search)}&organizationId=${encodeURIComponent(org)}`);
+    const res = await fetch(`/api/leaderboard?search=${encodeURIComponent(search)}&organizationId=${encodeURIComponent(org)}`, {
+      headers: getAuthHeaders()
+    });
     if (res.ok) {
       const players = await res.json();
       const tbody = document.getElementById('leaderboardTableBody');
@@ -393,7 +510,11 @@ async function loadPersistentLeaderboard() {
           <td><strong style="font-family: var(--font-display); color: var(--neon-lime);">${(p.totalPointsAllTime || 0).toLocaleString()} PTS</strong></td>
           <td>${p.quizzesPlayed || 0}</td>
           <td><strong style="color: #2ecc71;">${p.accuracyPercentage || 0}%</strong></td>
-          <td>🔥 ${p.highestStreak || 0}</td>
+          <td>
+            <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
+              ${ICONS.flame} ${p.highestStreak || 0}
+            </span>
+          </td>
           <td style="color: var(--text-muted); font-size: 0.85rem;">${new Date(p.lastActive).toLocaleDateString()}</td>
         `;
         tbody.appendChild(tr);
@@ -407,7 +528,10 @@ async function loadPersistentLeaderboard() {
 async function resetLeaderboardConfirm() {
   if (confirm('CAUTION: Are you sure you want to clear the persistent cumulative leaderboard? This cannot be undone.')) {
     try {
-      const res = await fetch('/api/leaderboard/reset', { method: 'POST' });
+      const res = await fetch('/api/leaderboard/reset', {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         alert('Leaderboard reset successfully.');
         loadPersistentLeaderboard();
@@ -420,7 +544,7 @@ async function resetLeaderboardConfirm() {
 
 async function loadUsersList() {
   try {
-    const res = await fetch('/api/auth/users');
+    const res = await fetch('/api/auth/users', { headers: getAuthHeaders() });
     if (res.ok) {
       const users = await res.json();
       const container = document.getElementById('usersListContainer');
@@ -472,7 +596,7 @@ async function handleRoleAssign() {
   try {
     const res = await fetch('/api/auth/assign-role', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ email, role })
     });
 

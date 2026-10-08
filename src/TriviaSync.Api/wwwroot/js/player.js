@@ -248,7 +248,7 @@ function onPlayerRoundResult(result) {
   if (result.streak > 0) {
     document.getElementById('streakBadge').style.display = 'inline-flex';
     document.getElementById('streakCount').textContent = result.streak;
-    streakMsg.textContent = `🔥 WINNING STREAK: ${result.streak}`;
+    streakMsg.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFA502" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 0.35rem;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg> <span>WINNING STREAK: ' + result.streak + '</span>';
     streakMsg.style.display = 'inline-flex';
   } else {
     document.getElementById('streakBadge').style.display = 'none';
@@ -256,14 +256,14 @@ function onPlayerRoundResult(result) {
   }
 
   if (result.isCorrect) {
-    iconEl.textContent = '✅';
+    iconEl.innerHTML = '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 56px; height: 56px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
     headingEl.textContent = 'CORRECT!';
     headingEl.style.color = 'var(--neon-lime)';
     pointsEl.textContent = `+${result.pointsEarned} PTS`;
     pointsEl.style.color = 'var(--neon-lime)';
     if (window.sounds) window.sounds.correct();
   } else {
-    iconEl.textContent = '❌';
+    iconEl.innerHTML = '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--tile-red)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 56px; height: 56px;"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
     headingEl.textContent = 'INCORRECT';
     headingEl.style.color = 'var(--tile-red)';
     pointsEl.textContent = '+0 PTS';

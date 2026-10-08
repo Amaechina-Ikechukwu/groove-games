@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Groove - Player Buzzer</title>
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=2.2">
   <style>
     body {
       background: var(--bg-dark);
@@ -241,8 +241,9 @@
   <header class="mobile-top-bar">
     <a href="/" class="top-action-btn" title="Back to Home">‹</a>
     <div class="top-stream-title">TRIVIA ARENA</div>
-    <button onclick="openPlayerTournamentModal()" class="hud-pill score-pill" style="font-size: 0.75rem; padding: 0.25rem 0.65rem; cursor: pointer;">
-      🏆 STANDINGS
+    <button onclick="openPlayerTournamentModal()" class="hud-pill score-pill" style="font-size: 0.75rem; padding: 0.25rem 0.65rem; cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; flex-shrink: 0;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path><path d="M6 4h12v7a6 6 0 0 1-12 0V4z"></path></svg>
+      <span>STANDINGS</span>
     </button>
   </header>
 
@@ -250,11 +251,12 @@
   <div style="padding: 0.5rem 1.25rem; background: var(--bg-surface-elevated); border-bottom: 1px solid var(--border-cyber); display: flex; justify-content: space-between; align-items: center;">
     <div style="display: flex; align-items: center; gap: 0.5rem;">
       <div style="width: 28px; height: 28px; background: var(--neon-lime); border-radius: 8px; color: #0A0C0F; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.85rem;">
-        🎮
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0A0C0F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; flex-shrink: 0;"><rect x="2" y="6" width="20" height="12" rx="2"></rect><line x1="6" y1="12" x2="10" y2="12"></line><line x1="8" y1="10" x2="8" y2="14"></line><line x1="15" y1="13" x2="15.01" y2="13"></line><line x1="18" y1="11" x2="18.01" y2="11"></line></svg>
       </div>
       <span id="playerDisplayName" style="font-family: var(--font-display); font-weight: 800; font-size: 0.95rem;">GUEST</span>
-      <span id="streakBadge" class="hud-pill" style="display: none; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-color: #FFA502; color: #FFA502;">
-        🔥 <span id="streakCount">0</span>
+      <span id="streakBadge" class="hud-pill" style="display: none; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-color: #FFA502; color: #FFA502; display: flex; align-items: center; gap: 0.3rem;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFA502" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+        <span id="streakCount">0</span>
       </span>
     </div>
     <div id="playerScoreDisplay" class="hud-pill score-pill" style="display: none;">
@@ -268,12 +270,8 @@
     <!-- STAGE 1: PIN & IDENTITY ENTRY -->
     <div id="stageJoin" class="stage-wrapper active">
       <div class="stream-preview-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-          <div class="live-pill">
-            <span class="live-dot"></span>
-            ARENA ACCESS
-          </div>
-          <span style="font-size: 1.25rem;">⚡</span>
+        <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 0.75rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
         </div>
 
         <h1 style="font-family: var(--font-display); font-size: 1.9rem; font-weight: 900; letter-spacing: -0.5px; text-transform: uppercase; margin-bottom: 0.35rem;">
@@ -305,13 +303,8 @@
     <!-- STAGE 2: LOBBY WAITING FOR HOST -->
     <div id="stageLobby" class="stage-wrapper">
       <div class="stream-preview-card" style="padding: 2.5rem 1.5rem;">
-        <div class="live-pill" style="margin: 0 auto 1.25rem auto;">
-          <span class="live-dot"></span>
-          CONNECTED TO STADIUM
-        </div>
-
         <div class="radar-pulse">
-          <span style="font-size: 1.75rem;">📡</span>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 32px; height: 32px;"><path d="M4.93 19.07A10 10 0 0 1 19.07 4.93"></path><path d="M7.76 16.24a6 6 0 0 1 8.48-8.48"></path><circle cx="12" cy="12" r="2"></circle></svg>
         </div>
 
         <h2 style="font-family: var(--font-display); font-size: 1.75rem; font-weight: 900; text-transform: uppercase; margin-bottom: 0.25rem;">
@@ -326,8 +319,9 @@
           <div id="lobbyPlayerName" style="font-family: var(--font-display); font-size: 1.4rem; font-weight: 900; color: var(--neon-lime);">Player</div>
         </div>
 
-        <button onclick="openPlayerTournamentModal()" class="btn-cyber btn-dark" style="width: 100%; font-size: 0.9rem; padding: 0.75rem;">
-          🏆 VIEW ALL SESSIONS & GAMES STANDINGS
+        <button onclick="openPlayerTournamentModal()" class="btn-cyber btn-dark" style="width: 100%; font-size: 0.9rem; padding: 0.75rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; flex-shrink: 0;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path><path d="M6 4h12v7a6 6 0 0 1-12 0V4z"></path></svg>
+          <span>VIEW ALL SESSIONS & GAMES STANDINGS</span>
         </button>
 
         <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem;">Waiting for host facilitator to trigger round 1...</p>
@@ -337,10 +331,6 @@
     <!-- STAGE 3: QUESTION COUNTDOWN -->
     <div id="stageCountdown" class="stage-wrapper">
       <div class="stream-preview-card" style="padding: 3rem 1.5rem;">
-        <div class="live-pill" style="margin: 0 auto 1rem auto;">
-          <span class="live-dot"></span>
-          ROUND IMMINENT
-        </div>
         <h2 style="font-family: var(--font-display); font-size: 2.2rem; font-weight: 900; text-transform: uppercase;">GET READY!</h2>
         <div id="countdownNumber" style="font-family: var(--font-display); font-size: 7rem; font-weight: 900; color: var(--neon-lime); text-shadow: 0 0 35px var(--neon-lime-glow); line-height: 1.1; margin: 1rem 0;">3</div>
         <div id="countdownQuestionInfo" class="hud-pill" style="margin: 0 auto; font-size: 1rem;">Question 1</div>
@@ -362,7 +352,9 @@
     <!-- STAGE 5: ANSWER LOCKED IN -->
     <div id="stageSubmitted" class="stage-wrapper">
       <div class="stream-preview-card" style="padding: 3rem 1.5rem;">
-        <div style="font-size: 3.5rem; margin-bottom: 0.75rem;">⚡</div>
+        <div style="display: flex; justify-content: center; margin-bottom: 0.75rem;">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 48px; height: 48px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        </div>
         <h2 style="font-family: var(--font-display); font-size: 1.8rem; font-weight: 900; text-transform: uppercase; margin-bottom: 0.5rem;">
           ANSWER LOCKED IN!
         </h2>
@@ -370,7 +362,7 @@
           Sub-second server timestamp registered.
         </p>
         <div class="radar-pulse">
-          <span style="font-size: 1.8rem;">⌛</span>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 36px; height: 36px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
         </div>
         <p style="color: var(--text-muted); font-size: 0.9rem;">Awaiting timer expiration or opponent answers...</p>
       </div>
@@ -379,7 +371,9 @@
     <!-- STAGE 6: ROUND RESULT FEEDBACK -->
     <div id="stageResult" class="stage-wrapper">
       <div class="stream-preview-card" style="padding: 2.25rem 1.5rem;">
-        <div id="resultIcon" style="font-size: 4rem; margin-bottom: 0.5rem;">✅</div>
+        <div id="resultIcon" style="display: flex; justify-content: center; margin-bottom: 0.5rem;">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 56px; height: 56px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        </div>
         <h2 id="resultHeading" style="font-family: var(--font-display); font-size: 2rem; font-weight: 900; text-transform: uppercase; margin-bottom: 0.5rem;">
           CORRECT!
         </h2>
@@ -398,12 +392,14 @@
           </div>
         </div>
 
-        <button onclick="openPlayerTournamentModal()" class="btn-cyber btn-dark" style="width: 100%; font-size: 0.9rem; padding: 0.75rem; margin-bottom: 1rem;">
-          🏆 VIEW ALL SESSIONS & GAMES STANDINGS
+        <button onclick="openPlayerTournamentModal()" class="btn-cyber btn-dark" style="width: 100%; font-size: 0.9rem; padding: 0.75rem; margin-bottom: 1rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; flex-shrink: 0;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path><path d="M6 4h12v7a6 6 0 0 1-12 0V4z"></path></svg>
+          <span>VIEW ALL SESSIONS & GAMES STANDINGS</span>
         </button>
 
-        <div id="resultStreakMsg" class="hud-pill" style="margin: 0 auto; color: #FFA502; border-color: #FFA502;">
-          🔥 WINNING STREAK: 1
+        <div id="resultStreakMsg" class="hud-pill" style="margin: 0 auto; color: #FFA502; border-color: #FFA502; display: flex; align-items: center; gap: 0.4rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFA502" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+          <span>WINNING STREAK: 1</span>
         </div>
       </div>
     </div>
@@ -411,7 +407,9 @@
     <!-- STAGE 7: GAME SUMMARY & PODIUM -->
     <div id="stageSummary" class="stage-wrapper">
       <div class="stream-preview-card" style="padding: 2.75rem 1.5rem;">
-        <div style="font-size: 4.5rem; margin-bottom: 0.5rem;">🏆</div>
+        <div style="display: flex; justify-content: center; margin-bottom: 0.5rem;">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 56px; height: 56px;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path><path d="M6 4h12v7a6 6 0 0 1-12 0V4z"></path></svg>
+        </div>
         <h2 style="font-family: var(--font-display); font-size: 2.2rem; font-weight: 900; text-transform: uppercase; margin-bottom: 0.5rem;">
           MATCH CONCLUDED
         </h2>
@@ -422,8 +420,9 @@
           Your match points have been appended to your cumulative tournament profile under this Host!
         </p>
 
-        <button onclick="openPlayerTournamentModal()" class="btn-cyber btn-lime" style="width: 100%; font-size: 1.05rem; padding: 1rem; margin-bottom: 1rem;">
-          🏆 SEE ALL-SESSIONS TOURNAMENT BOARD
+        <button onclick="openPlayerTournamentModal()" class="btn-cyber btn-lime" style="width: 100%; font-size: 1.05rem; padding: 1rem; margin-bottom: 1rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path><path d="M6 4h12v7a6 6 0 0 1-12 0V4z"></path></svg>
+          <span>SEE ALL-SESSIONS TOURNAMENT BOARD</span>
         </button>
 
         <a href="/" class="btn-cyber btn-dark" style="width: 100%; padding: 0.85rem;">
@@ -439,11 +438,7 @@
     <div class="modal-card" onclick="event.stopPropagation()">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
         <div>
-          <div class="live-pill" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">
-            <span class="live-dot"></span>
-            ALL SESSIONS & GAMES
-          </div>
-          <h2 style="font-family: var(--font-display); font-size: 1.5rem; font-weight: 900; text-transform: uppercase; margin-top: 0.35rem;">
+          <h2 style="font-family: var(--font-display); font-size: 1.5rem; font-weight: 900; text-transform: uppercase;">
             TOURNAMENT STANDINGS
           </h2>
         </div>
@@ -476,19 +471,27 @@
   <!-- Bottom Streamo Cyber Navigation Bar -->
   <div class="bottom-cyber-bar">
     <a href="/" class="bottom-cyber-item">
-      <span class="bottom-cyber-icon">⬡</span>
+      <span class="bottom-cyber-icon" style="display: inline-flex; align-items: center; justify-content: center;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+      </span>
       <span>HOME</span>
     </a>
     <a href="/player.html" class="bottom-cyber-item" style="opacity: 1;">
-      <span class="bottom-cyber-icon">🎮</span>
+      <span class="bottom-cyber-icon" style="display: inline-flex; align-items: center; justify-content: center;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><rect x="2" y="6" width="20" height="12" rx="2"></rect><line x1="6" y1="12" x2="10" y2="12"></line><line x1="8" y1="10" x2="8" y2="14"></line><line x1="15" y1="13" x2="15.01" y2="13"></line><line x1="18" y1="11" x2="18.01" y2="11"></line></svg>
+      </span>
       <span>BUZZER</span>
     </a>
     <button onclick="openPlayerTournamentModal()" class="bottom-cyber-item" style="background: transparent; border: none; cursor: pointer;">
-      <span class="bottom-cyber-icon">🏆</span>
+      <span class="bottom-cyber-icon" style="display: inline-flex; align-items: center; justify-content: center;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path><path d="M6 4h12v7a6 6 0 0 1-12 0V4z"></path></svg>
+      </span>
       <span>STANDINGS</span>
     </button>
     <a href="/admin.html" class="bottom-cyber-item">
-      <span class="bottom-cyber-icon">⚡</span>
+      <span class="bottom-cyber-icon" style="display: inline-flex; align-items: center; justify-content: center;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+      </span>
       <span>ADMIN</span>
     </a>
   </div>

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Groove - Admin Deck & Bulk Ingestion</title>
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=2.2">
   <style>
     body {
       background: var(--bg-dark);
@@ -28,6 +28,7 @@
       margin-bottom: 2rem;
       border-bottom: 1px solid var(--border-cyber);
       padding-bottom: 1rem;
+      overflow-x: auto;
     }
 
     .tab-btn {
@@ -43,6 +44,10 @@
       border-radius: var(--radius-button);
       cursor: pointer;
       transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      white-space: nowrap;
     }
 
     .tab-btn:hover {
@@ -138,24 +143,97 @@
   <!-- Top Navigation -->
   <nav class="navbar">
     <a href="/" class="brand-container">
-      <div class="brand-glyph">⚡</div>
+      <div class="brand-glyph">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 24px; height: 24px; flex-shrink: 0;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+      </div>
       <div class="brand-title">GROO<span class="accent">VE</span> CONTROL DECK</div>
     </a>
-    <div class="nav-pill-group">
-      <a href="/player.html" class="nav-pill">BUZZER</a>
-      <a href="/host.html" class="nav-pill">HOST SCREEN</a>
-      <a href="/admin.html" class="nav-pill active">ADMIN PORTAL</a>
+
+    <!-- Right Controls: Active Admin Profile Badge & Navigation -->
+    <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+      <div id="adminUserBadge" style="display: none; align-items: center; gap: 0.65rem; font-size: 0.85rem; background: var(--bg-surface-elevated); border: 1px solid var(--border-cyber-active); padding: 0.4rem 0.85rem; border-radius: 8px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; flex-shrink: 0;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        <span id="adminEmailDisplay" style="font-weight: 700; color: #fff;">admin@groove.live</span>
+        <button onclick="adminLogout()" style="background: rgba(255, 42, 85, 0.1); border: 1px solid rgba(255, 42, 85, 0.3); color: var(--tile-red); cursor: pointer; display: flex; align-items: center; gap: 0.35rem; font-family: var(--font-display); font-weight: 800; font-size: 0.75rem; text-transform: uppercase; margin-left: 0.5rem; padding: 0.25rem 0.6rem; border-radius: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; flex-shrink: 0;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          LOGOUT
+        </button>
+      </div>
+
+      <div class="nav-pill-group">
+        <a href="/player.html" class="nav-pill">BUZZER</a>
+        <a href="/host.html" class="nav-pill">HOST SCREEN</a>
+        <a href="/admin.html" class="nav-pill active">ADMIN PORTAL</a>
+      </div>
     </div>
   </nav>
 
-  <div class="admin-container">
+  <!-- AUTHENTICATION GATE (Prompted when not logged in as Admin) -->
+  <div id="adminAuthGate" style="display: flex; min-height: 75vh; align-items: center; justify-content: center; padding: 2rem 1rem;">
+    <div class="cyber-card" style="max-width: 480px; width: 100%; padding: 2.75rem 2.25rem; box-shadow: var(--shadow-cyber); border-color: var(--border-cyber-active);">
+      <div style="display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 2rem;">
+        <div style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; background: rgba(212, 255, 0, 0.08); border: 2px solid var(--neon-lime); border-radius: 14px; margin-bottom: 1.25rem; box-shadow: 0 0 25px rgba(212, 255, 0, 0.18);">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width: 28px; height: 28px; flex-shrink: 0;">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        </div>
+        <h2 style="font-family: var(--font-display); font-size: 1.85rem; font-weight: 900; text-transform: uppercase; margin: 0; letter-spacing: 0.5px;">
+          ADMIN CONTROL ACCESS
+        </h2>
+        <p style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.5rem; line-height: 1.5; max-width: 380px;">
+          Sign in with Administrator credentials to manage quizzes, inspect system databases, and configure RBAC roles.
+        </p>
+      </div>
 
-    <!-- Admin Tabs -->
+      <div id="adminAuthAlert" style="display: none; margin-bottom: 1.25rem; padding: 0.85rem 1rem; border-radius: var(--radius-button); font-weight: 700; font-size: 0.9rem; background: rgba(255, 42, 85, 0.15); border: 1px solid var(--tile-red); color: var(--tile-red);"></div>
+
+      <form onsubmit="handleAdminLogin(event)">
+        <div style="margin-bottom: 1.25rem;">
+          <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.4rem;">
+            Admin Email
+          </label>
+          <input type="email" id="adminLoginEmail" class="form-input-cyber" value="admin@groove.live" required>
+        </div>
+
+        <div style="margin-bottom: 1.75rem;">
+          <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.4rem;">
+            Admin Password
+          </label>
+          <input type="password" id="adminLoginPassword" class="form-input-cyber" value="admin123" required>
+        </div>
+
+        <button type="submit" id="btnAdminLoginSubmit" class="btn-cyber btn-lime" style="width: 100%; height: 54px; font-size: 1rem; font-weight: 900; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; gap: 0.65rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px; min-width: 20px; max-width: 20px; flex-shrink: 0;">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+          <span style="white-space: nowrap;">AUTHENTICATE & ENTER DECK</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADMIN MAIN CONTENT (Revealed Once Authenticated) -->
+  <div id="adminMainContent" class="admin-container" style="display: none;">
+
+    <!-- Admin Sub Navigation Tabs with Vector Icons -->
     <div class="admin-tabs">
-      <button class="tab-btn active" onclick="switchAdminTab('tabIngest')">📝 Bulk Quiz Parser</button>
-      <button class="tab-btn" onclick="switchAdminTab('tabSaved')">📚 Quiz Bank (<span id="savedQuizCountBadge">0</span>)</button>
-      <button class="tab-btn" onclick="switchAdminTab('tabLeaderboard')">🏆 Persistent Tournament Board</button>
-      <button class="tab-btn" onclick="switchAdminTab('tabRoles')">🛡️ Roles & RBAC</button>
+      <button class="tab-btn active" onclick="switchAdminTab('tabIngest')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        BULK QUIZ PARSER
+      </button>
+      <button class="tab-btn" onclick="switchAdminTab('tabSaved')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+        QUIZ BANK (<span id="savedQuizCountBadge">0</span>)
+      </button>
+      <button class="tab-btn" onclick="switchAdminTab('tabLeaderboard')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path><path d="M6 4h12v7a6 6 0 0 1-12 0V4z"></path></svg>
+        PERSISTENT LEADERBOARD
+      </button>
+      <button class="tab-btn" onclick="switchAdminTab('tabRoles')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        ROLES & RBAC
+      </button>
     </div>
 
     <!-- TAB 1: BULK INGESTION (Split-Screen) -->
@@ -197,8 +275,9 @@
           </div>
 
           <div style="display: flex; gap: 1rem;">
-            <button onclick="runParser()" class="btn-cyber btn-lime" style="flex: 1;">
-              ⚡ PARSE WITH ENGINE
+            <button onclick="runParser()" class="btn-cyber btn-lime" style="flex: 1; justify-content: center; gap: 0.5rem;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              PARSE WITH ENGINE
             </button>
             <button onclick="clearRawText()" class="btn-cyber btn-dark">
               CLEAR
@@ -214,8 +293,9 @@
             <h3 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 900; text-transform: uppercase;">
               STRUCTURED PREVIEW & INLINE OVERRIDES (<span id="parsedCount">0</span>)
             </h3>
-            <button id="btnSaveToDb" onclick="saveParsedQuizToDatabase()" class="btn-cyber btn-lime" style="display: none;">
-              💾 SAVE TO DATABASE
+            <button id="btnSaveToDb" onclick="saveParsedQuizToDatabase()" class="btn-cyber btn-lime" style="display: none; align-items: center; gap: 0.5rem;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+              SAVE TO DATABASE
             </button>
           </div>
 
@@ -239,8 +319,8 @@
             Quizzes stored securely in PostgreSQL persistent storage. Launch live rooms with a single click.
           </p>
         </div>
-        <button onclick="switchAdminTab('tabIngest')" class="btn-cyber btn-lime">
-          + CREATE NEW QUIZ
+        <button onclick="switchAdminTab('tabIngest')" class="btn-cyber btn-lime" style="display: inline-flex; align-items: center; gap: 0.4rem;">
+          <span>+</span> CREATE NEW QUIZ
         </button>
       </div>
 
@@ -261,11 +341,13 @@
           </p>
         </div>
         <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-          <a href="/api/leaderboard/export/csv" class="btn-cyber btn-dark">
-            📥 EXPORT CSV
+          <a href="/api/leaderboard/export/csv" class="btn-cyber btn-dark" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            EXPORT CSV
           </a>
-          <a href="/api/leaderboard/export/excel" class="btn-cyber btn-lime">
-            📊 EXPORT EXCEL
+          <a href="/api/leaderboard/export/excel" class="btn-cyber btn-lime" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            EXPORT EXCEL
           </a>
           <button onclick="resetLeaderboardConfirm()" class="btn-cyber btn-danger">
             RESET SCORES

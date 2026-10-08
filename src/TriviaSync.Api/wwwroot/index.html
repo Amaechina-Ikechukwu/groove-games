@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Groove - Live Multiplayer Esports Quiz</title>
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=2.2">
   <style>
     .home-container {
       max-width: 1200px;
@@ -223,7 +223,9 @@
   <!-- Top Navigation with Gaming Glyphs -->
   <nav class="navbar">
     <a href="/" class="brand-container">
-      <div class="brand-glyph">△</div>
+      <div class="brand-glyph">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0A0C0F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 22px; height: 22px; flex-shrink: 0;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+      </div>
       <div class="brand-title">GROO<span class="accent">VE</span></div>
     </a>
     <div class="nav-pill-group">
@@ -238,11 +240,7 @@
     <div class="top-hero-layout">
       <!-- Left Hero Text -->
       <div class="hero-text">
-        <div class="live-pill" style="margin-bottom: 1.25rem;">
-          <span class="live-dot"></span>
-          REAL-TIME TOURNAMENT ENGINE
-        </div>
-        <h1>LIVE ARENA <span class="neon">TRIVIA</span></h1>
+        <h1 style="margin-top: 0.5rem;">LIVE ARENA <span class="neon">TRIVIA</span></h1>
         <p>
           High-voltage multiplayer showdowns powered by <strong>.NET 8 & SignalR</strong> with 
           sub-second synchronization, persistent cumulative player scoring, and smart bulk quiz ingestion.
@@ -259,14 +257,15 @@
       <div class="streamo-featured-card">
         <div class="featured-header">
           <div class="featured-badge">FEATURED MATCH</div>
-          <span style="font-size: 1.5rem; font-weight: 900;">⚡</span>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 22px; height: 22px; flex-shrink: 0;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
         </div>
 
         <div class="featured-content">
           <div class="game-tag">C# & MICROSERVICES</div>
           <div class="game-title">DEVELOPER CLASH</div>
-          <div class="viewer-count">
-            <span>👥</span> 48 Live Participants
+          <div class="viewer-count" style="display: flex; align-items: center; gap: 0.4rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            <span>48 Live Participants</span>
           </div>
         </div>
 
@@ -294,7 +293,9 @@
       <!-- Player Buzzer -->
       <div class="portal-card">
         <div>
-          <div class="portal-glyph">🎮</div>
+          <div class="portal-glyph" style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; margin-bottom: 1rem; color: var(--neon-lime);">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 32px; height: 32px;"><rect x="2" y="6" width="20" height="12" rx="2"></rect><line x1="6" y1="12" x2="10" y2="12"></line><line x1="8" y1="10" x2="8" y2="14"></line><line x1="15" y1="13" x2="15.01" y2="13"></line><line x1="18" y1="11" x2="18.01" y2="11"></line></svg>
+          </div>
           <h3 class="portal-title">Participant Buzzer</h3>
           <p class="portal-desc">
             Connect via Room PIN and full name. Rapid-fire colored geometric buzzer tiles with real-time feedback and answer streaks.
@@ -306,7 +307,9 @@
       <!-- Host Screen -->
       <div class="portal-card">
         <div>
-          <div class="portal-glyph">📺</div>
+          <div class="portal-glyph" style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; margin-bottom: 1rem; color: var(--neon-lime);">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 32px; height: 32px;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+          </div>
           <h3 class="portal-title">Host Arena Display</h3>
           <p class="portal-desc">
             Projector & TV stadium view. Real-time participant lobby, live answer meters, animated countdowns, and 3D celebratory podium.
@@ -318,7 +321,9 @@
       <!-- Admin & Ingestion -->
       <div class="portal-card">
         <div>
-          <div class="portal-glyph">⚡</div>
+          <div class="portal-glyph" style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; margin-bottom: 1rem; color: var(--neon-lime);">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 32px; height: 32px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          </div>
           <h3 class="portal-title">Admin & Quiz Ingest</h3>
           <p class="portal-desc">
             Bulk paste questions in Markdown, text, or JSON. Manage quiz banks, view persistent cumulative leaderboards, and export CSV/Excel.
@@ -332,19 +337,27 @@
   <!-- Bottom Streamo Tray Navigation Bar -->
   <div class="bottom-cyber-bar">
     <a href="/" class="bottom-cyber-item">
-      <span class="bottom-cyber-icon">⬡</span>
+      <span class="bottom-cyber-icon" style="display: inline-flex; align-items: center; justify-content: center;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+      </span>
       <span>HOME</span>
     </a>
     <a href="/player.html" class="bottom-cyber-item">
-      <span class="bottom-cyber-icon">🎮</span>
+      <span class="bottom-cyber-icon" style="display: inline-flex; align-items: center; justify-content: center;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><rect x="2" y="6" width="20" height="12" rx="2"></rect><line x1="6" y1="12" x2="10" y2="12"></line><line x1="8" y1="10" x2="8" y2="14"></line><line x1="15" y1="13" x2="15.01" y2="13"></line><line x1="18" y1="11" x2="18.01" y2="11"></line></svg>
+      </span>
       <span>PLAY</span>
     </a>
     <a href="/host.html" class="bottom-cyber-item">
-      <span class="bottom-cyber-icon">📺</span>
+      <span class="bottom-cyber-icon" style="display: inline-flex; align-items: center; justify-content: center;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+      </span>
       <span>STADIUM</span>
     </a>
     <a href="/admin.html" class="bottom-cyber-item">
-      <span class="bottom-cyber-icon">⚡</span>
+      <span class="bottom-cyber-icon" style="display: inline-flex; align-items: center; justify-content: center;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+      </span>
       <span>INGEST</span>
     </a>
   </div>

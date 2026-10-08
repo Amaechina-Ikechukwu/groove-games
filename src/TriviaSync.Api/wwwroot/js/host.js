@@ -167,8 +167,8 @@ function renderTournamentCodesDeck(data) {
     card.style.padding = '1.75rem';
     card.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-        <span class="hud-pill score-pill" style="font-size: 0.8rem;">SESSION ${s.sessionNumber} OF ${s.totalSessions}</span>
-        <span class="live-pill" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">READY</span>
+        <span style="font-family: var(--font-display); font-weight: 800; font-size: 0.8rem; background: var(--bg-surface-elevated); border: 1px solid var(--border-cyber); padding: 0.35rem 0.75rem; border-radius: 6px; color: var(--neon-lime);">SESSION ${s.sessionNumber} OF ${s.totalSessions}</span>
+        <span style="font-family: var(--font-display); font-weight: 800; font-size: 0.75rem; background: rgba(0, 230, 118, 0.12); border: 1px solid var(--tile-green); color: var(--tile-green); padding: 0.25rem 0.65rem; border-radius: 6px;">READY</span>
       </div>
 
       <h3 style="font-family: var(--font-display); font-size: 1.3rem; font-weight: 900; text-transform: uppercase; margin-bottom: 1rem;">
@@ -183,11 +183,12 @@ function renderTournamentCodesDeck(data) {
       </div>
 
       <div style="display: flex; gap: 0.5rem;">
-        <button onclick="launchSessionFromDeck('${s.pin}')" class="btn-cyber btn-lime" style="flex: 1; font-size: 0.95rem; padding: 0.75rem;">
-          ▶ LAUNCH THIS ARENA
+        <button onclick="launchSessionFromDeck('${s.pin}')" class="btn-cyber btn-lime" style="flex: 1; font-size: 0.95rem; padding: 0.75rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="width: 14px; height: 14px; flex-shrink: 0;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          <span>LAUNCH THIS ARENA</span>
         </button>
-        <button onclick="copyPinCode('${s.pin}')" class="btn-cyber btn-dark" style="padding: 0.75rem 1rem;" title="Copy Code">
-          📋
+        <button onclick="copyPinCode('${s.pin}')" class="btn-cyber btn-dark" style="padding: 0.75rem 1rem; display: inline-flex; align-items: center; justify-content: center;" title="Copy Code">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; flex-shrink: 0;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
         </button>
       </div>
     `;
@@ -302,7 +303,7 @@ function renderLobbyPlayers(players) {
     chip.className = 'player-avatar-chip';
     chip.id = `chip_${p.playerId}`;
     chip.innerHTML = `
-      <span>👤</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; flex-shrink: 0;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
       <span>${escapeHtml(p.fullName)}</span>
       <span class="kick-btn" onclick="kickPlayer('${p.playerId}')" title="Kick player">✕</span>
     `;
@@ -421,7 +422,7 @@ function onAnswerReceived(data) {
 function onRoundCompleted(data) {
   console.log('Host Round Completed:', data);
   showHostStage('hostStageReveal');
-  setHudButton('NEXT ➔', () => advanceNextQuestionFromHost());
+  setHudButton('NEXT QUESTION', () => advanceNextQuestionFromHost());
 
   if (window.sounds) window.sounds.correct();
 
@@ -435,8 +436,9 @@ function onRoundCompleted(data) {
       const isCorrect = (idx === data.correctIndex);
       const card = document.createElement('div');
       card.className = `host-choice-card host-choice-${idx % 4} ${isCorrect ? 'revealed-correct' : 'dimmed-wrong'}`;
+      const correctSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; display: inline-block; vertical-align: middle;"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
       card.innerHTML = `
-        <div class="choice-glyph">${isCorrect ? '✔' : CHOICE_GLYPHS[idx % CHOICE_GLYPHS.length]}</div>
+        <div class="choice-glyph">${isCorrect ? correctSvg : CHOICE_GLYPHS[idx % CHOICE_GLYPHS.length]}</div>
         <div class="choice-text">${escapeHtml(choiceText)} ${isCorrect ? '<strong style="color:var(--neon-lime);">[CORRECT]</strong>' : ''}</div>
       `;
       container.appendChild(card);
@@ -470,10 +472,12 @@ function onRoundCompleted(data) {
 function onLeaderboardUpdate(data) {
   console.log('Host Leaderboard Update:', data);
   showHostStage('hostStageLeaderboard');
-  setHudButton('NEXT QUESTION ➔', () => advanceNextQuestionFromHost());
+  setHudButton('NEXT QUESTION', () => advanceNextQuestionFromHost());
 
   const list = document.getElementById('hostLeaderboardList');
   list.innerHTML = '';
+
+  const flameSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFA502" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; vertical-align: -0.15em; margin-right: 0.25rem;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>`;
 
   if (data.topPlayers) {
     data.topPlayers.forEach((p, idx) => {
@@ -486,7 +490,7 @@ function onLeaderboardUpdate(data) {
             <div style="font-family: var(--font-display); font-size: 1.35rem; font-weight: 900; text-transform: uppercase;">
               ${escapeHtml(p.fullName)}
             </div>
-            ${p.streak > 1 ? `<div style="color: #FFA502; font-size: 0.85rem; font-weight: 700;">🔥 Streak: ${p.streak} in a row</div>` : ''}
+            ${p.streak > 1 ? `<div style="color: #FFA502; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center;">${flameSvg} Streak: ${p.streak} in a row</div>` : ''}
           </div>
         </div>
         <div style="text-align: right;">
@@ -559,7 +563,7 @@ async function viewCumulativeLeaderboard() {
           <td><strong style="font-family: var(--font-display); color: var(--neon-lime);">${p.totalPointsAllTime.toLocaleString()} PTS</strong></td>
           <td>${p.quizzesPlayed}</td>
           <td><strong style="color: #2ecc71;">${p.accuracyPercentage}%</strong></td>
-          <td>🔥 ${p.highestStreak}</td>
+          <td><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFA502" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; vertical-align: -0.15em; margin-right: 0.25rem;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>${p.highestStreak}</td>
           <td style="color: var(--text-muted); font-size: 0.85rem;">${new Date(p.lastActive).toLocaleDateString()}</td>
         `;
         tbody.appendChild(tr);
