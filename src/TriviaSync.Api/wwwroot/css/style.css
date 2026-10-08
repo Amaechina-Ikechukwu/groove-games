@@ -832,3 +832,151 @@ button svg {
   animation: popIn 0.25s ease;
 }
 
+/* ==========================================================================
+   Lobby & Stadium QR Code Styles (Esports Arena)
+   ========================================================================== */
+.lobby-join-hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2rem;
+  background: linear-gradient(135deg, rgba(26, 30, 38, 0.95) 0%, rgba(18, 21, 27, 0.98) 100%);
+  border: 2px solid var(--neon-lime);
+  box-shadow: 0 0 35px rgba(212, 255, 0, 0.15), var(--shadow-cyber);
+  border-radius: var(--radius-streamo);
+  padding: 2.25rem;
+  margin-bottom: 2rem;
+  align-items: center;
+}
+
+@media (max-width: 860px) {
+  .lobby-join-hero {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+}
+
+.lobby-access-details {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.lobby-pin-banner {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-cyber-active);
+  border-radius: var(--radius-button);
+  padding: 1.25rem 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.lobby-pin-value {
+  font-family: var(--font-display);
+  font-size: 3.5rem;
+  font-weight: 900;
+  letter-spacing: 8px;
+  color: var(--neon-lime);
+  text-shadow: 0 0 25px var(--neon-lime-glow);
+  line-height: 1;
+}
+
+.lobby-qr-card {
+  background: #FFFFFF;
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 0 30px rgba(212, 255, 0, 0.35), 0 10px 25px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.lobby-qr-card canvas,
+.lobby-qr-card img {
+  display: block;
+  border-radius: 6px;
+}
+
+.lobby-qr-caption {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  color: #0A0C0F;
+  margin-top: 8px;
+  text-transform: uppercase;
+}
+
+/* Stadium Top HUD QR Badge */
+.stadium-qr-badge {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-cyber-active);
+  border-radius: var(--radius-button);
+  padding: 0.4rem 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #FFFFFF;
+}
+
+.stadium-qr-badge:hover {
+  border-color: var(--neon-lime);
+  box-shadow: 0 0 18px var(--neon-lime-glow);
+  transform: translateY(-1px);
+}
+
+.stadium-mini-qr {
+  background: #FFFFFF;
+  padding: 3px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+}
+
+.stadium-mini-qr canvas,
+.stadium-mini-qr img {
+  display: block;
+  width: 32px;
+  height: 32px;
+}
+
+/* Multi-session Tournament Card QR Box */
+.deck-card-code-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: var(--bg-surface-elevated);
+  border: 1.5px solid var(--border-cyber-active);
+  border-radius: var(--radius-button);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.deck-card-qr {
+  background: #FFFFFF;
+  padding: 6px;
+  border-radius: 8px;
+  box-shadow: 0 0 15px rgba(212, 255, 0, 0.25);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.deck-card-qr canvas,
+.deck-card-qr img {
+  display: block;
+  border-radius: 4px;
+}
+
+

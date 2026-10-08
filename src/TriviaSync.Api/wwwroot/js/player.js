@@ -35,6 +35,12 @@ function checkPlayerAuth() {
     if (joinName) joinName.value = name;
     if (joinId && email) joinId.value = email;
 
+    const savedPin = sessionStorage.getItem('groove_pin');
+    const joinPin = document.getElementById('joinPin');
+    if (joinPin && (!joinPin.value || joinPin.value === '') && savedPin) {
+      joinPin.value = savedPin;
+    }
+
     // Show PIN entry stage
     showStage('stageJoin');
     return true;
@@ -166,11 +172,21 @@ function playerLogout() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Check URL params for quick join
+  // Check URL params for quick join via QR Code or direct link
   const params = new URLSearchParams(window.location.search);
   const pinParam = params.get('pin');
   if (pinParam) {
-    document.getElementById('joinPin').value = pinParam.trim().toUpperCase();
+    const cleanPin = pinParam.trim().toUpperCase();
+    sessionStorage.setItem('groove_pin', cleanPin);
+    const joinPin = document.getElementById('joinPin');
+    if (joinPin) joinPin.value = cleanPin;
+
+    const banner = document.getElementById('authPinBanner');
+    const bannerVal = document.getElementById('authPinBannerValue');
+    if (banner && bannerVal) {
+      bannerVal.textContent = cleanPin;
+      banner.style.display = 'block';
+    }
   }
 
   checkPlayerAuth();

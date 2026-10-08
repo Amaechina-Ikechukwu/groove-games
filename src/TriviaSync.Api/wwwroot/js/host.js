@@ -232,10 +232,19 @@ function renderTournamentCodesDeck(data) {
         ${escapeHtml(s.quizTitle)}
       </h3>
 
-      <div style="background: var(--bg-surface-elevated); border: 2px solid var(--neon-lime); border-radius: var(--radius-button); padding: 1rem; text-align: center; margin-bottom: 1.25rem;">
-        <div style="font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-display); text-transform: uppercase;">CONTENDER ACCESS CODE</div>
-        <div style="font-family: var(--font-display); font-size: 2.2rem; font-weight: 900; color: var(--neon-lime); letter-spacing: 4px;">
-          ${s.pin}
+      <div class="deck-card-code-row">
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-display); text-transform: uppercase;">CONTENDER ACCESS CODE</div>
+          <div style="font-family: var(--font-display); font-size: 2.2rem; font-weight: 900; color: var(--neon-lime); letter-spacing: 4px; line-height: 1.1; margin: 0.2rem 0;">
+            ${s.pin}
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-secondary); word-break: break-all;">
+            player.html?pin=${s.pin}
+          </div>
+        </div>
+        <div class="deck-card-qr">
+          <div id="deckQr_${s.pin}"></div>
+          <div style="font-size: 0.65rem; font-weight: 900; color: #0A0C0F; font-family: var(--font-display); margin-top: 4px;">SCAN PIN</div>
         </div>
       </div>
 
@@ -250,6 +259,7 @@ function renderTournamentCodesDeck(data) {
       </div>
     `;
     container.appendChild(card);
+    renderSessionQrCode(s.pin, `deckQr_${s.pin}`, 80);
   });
 }
 
@@ -319,6 +329,26 @@ function onRoomState(state) {
     state.tournamentName ? `${state.tournamentName} - ${state.title}` : state.title;
   document.getElementById('stadiumPlayerCount').textContent = state.connectedPlayerCount || 0;
 
+  // Update Lobby and Stadium HUD Access Code & QR components
+  const lobbyPin = document.getElementById('lobbyPinValue');
+  if (lobbyPin) lobbyPin.textContent = state.pin;
+
+  const joinUrl = `${window.location.origin}/player.html?pin=${encodeURIComponent(state.pin)}`;
+  const lobbyLink = document.getElementById('lobbyDirectLink');
+  if (lobbyLink) lobbyLink.textContent = `${window.location.host}/player.html?pin=${state.pin}`;
+
+  const hudModalPin = document.getElementById('hudModalPinValue');
+  if (hudModalPin) hudModalPin.textContent = state.pin;
+  const hudModalUrl = document.getElementById('hudModalUrlText');
+  if (hudModalUrl) hudModalUrl.textContent = joinUrl;
+
+  const lobbyBadge = document.getElementById('lobbyPlayerBadge');
+  if (lobbyBadge) lobbyBadge.textContent = `${state.connectedPlayerCount || 0} CONTENDERS`;
+
+  // Render QR Codes alongside access code
+  renderSessionQrCode(state.pin, 'lobbyQrContainer', 180);
+  renderSessionQrCode(state.pin, 'hudMiniQrContainer', 32);
+
   renderLobbyPlayers(state.allPlayers || []);
 
   if (state.state === 'Lobby') {
@@ -349,6 +379,8 @@ function renderLobbyPlayers(players) {
   container.innerHTML = '';
 
   document.getElementById('stadiumPlayerCount').textContent = players.length;
+  const lobbyBadge = document.getElementById('lobbyPlayerBadge');
+  if (lobbyBadge) lobbyBadge.textContent = `${players.length} CONTENDERS`;
 
   if (players.length === 0) {
     container.innerHTML = '<div style="color: var(--text-muted); font-size: 1.2rem; padding: 2rem 0;">Waiting for contenders to enter access code...</div>';
@@ -659,3 +691,58 @@ function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+
+/* ==========================================================================
+   QR Code Generation & Modal Helpers
+   ========================================================================== */
+function renderSessionQrCode(pin, containerId, size = 160) {
+  const container = document.getElementById(containerId);
+  if (!container || !pin) return;
+  container.innerHTML = '';
+  const joinUrl = `${window.location.origin}/player.html?pin=${encodeURIComponent(pin)}`;
+  if (typeof QRCode !== 'undefined') {
+    new QRCode(container, {
+      text: joinUrl,
+      width: size,
+      height: size,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } else {
+    console.warn('QRCode library not ready yet');
+  }
+}
+
+function openHudQrModal() {
+  if (currentPin) {
+    const hudModalPin = document.getElementById('hudModalPinValue');
+    if (hudModalPin) hudModalPin.textContent = currentPin;
+    const hudModalUrl = document.getElementById('hudModalUrlText');
+    if (hudModalUrl) hudModalUrl.textContent = `${window.location.origin}/player.html?pin=${encodeURIComponent(currentPin)}`;
+    renderSessionQrCode(currentPin, 'hudModalQrContainer', 220);
+  }
+  const modal = document.getElementById('hudQrModal');
+  if (modal) modal.classList.add('active');
+}
+
+function closeHudQrModal(e) {
+  if (e && e.target !== e.currentTarget && !e.target.classList.contains('btn-cyber')) return;
+  const modal = document.getElementById('hudQrModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function copyLobbyJoinUrl() {
+  if (!currentPin) return;
+  const url = `${window.location.origin}/player.html?pin=${encodeURIComponent(currentPin)}`;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => {
+      alert(`Contender Arena Join Link copied to clipboard!\n${url}`);
+    }).catch(() => {
+      prompt('Contender Arena Join Link:', url);
+    });
+  } else {
+    prompt('Contender Arena Join Link:', url);
+  }
+}
+

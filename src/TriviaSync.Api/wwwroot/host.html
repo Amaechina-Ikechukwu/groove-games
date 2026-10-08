@@ -476,11 +476,18 @@
 
       <!-- Stadium Top HUD -->
       <div class="stadium-hud">
-        <div style="display: flex; align-items: center; gap: 1.5rem;">
+        <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
           <div class="pin-display-huge">
             <span style="font-size: 1.1rem; color: var(--text-muted);">ACCESS CODE:</span>
             <span id="stadiumPinValue">------</span>
           </div>
+          <button type="button" onclick="openHudQrModal()" class="stadium-qr-badge" title="Show Contender QR Code">
+            <div id="hudMiniQrContainer" class="stadium-mini-qr"></div>
+            <div>
+              <div style="font-size: 0.65rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; line-height: 1;">SCAN CODE</div>
+              <div style="font-family: var(--font-display); font-size: 0.85rem; font-weight: 900; color: var(--neon-lime); line-height: 1.2;">QR CODE</div>
+            </div>
+          </button>
           <div>
             <div id="stadiumQuizTitle" style="font-family: var(--font-display); font-size: 1.35rem; font-weight: 900; text-transform: uppercase;">QUIZ TITLE</div>
             <div style="color: var(--text-secondary); font-size: 0.9rem;">
@@ -507,10 +514,54 @@
       <!-- 1. LOBBY STAGE -->
       <div id="hostStageLobby" class="host-stage">
         <div class="cyber-card" style="padding: 2.5rem; flex: 1; display: flex; flex-direction: column;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-            <h2 style="font-family: var(--font-display); font-size: 1.8rem; font-weight: 900; text-transform: uppercase;">
-              WAITING FOR CONTENDERS TO ENTER ACCESS CODE...
-            </h2>
+          
+          <!-- Prominent Join Gateway: Access Code alongside Scannable QR Code -->
+          <div class="lobby-join-hero">
+            <div class="lobby-access-details">
+              <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span class="hud-pill score-pill" style="font-size: 0.85rem; padding: 0.35rem 0.85rem;">SESSION LIVE</span>
+                <span style="font-size: 0.9rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">HOW TO JOIN:</span>
+              </div>
+              <h2 style="font-family: var(--font-display); font-size: 2.2rem; font-weight: 900; text-transform: uppercase; margin: 0;">
+                SCAN QR CODE OR ENTER ACCESS PIN
+              </h2>
+              <div class="lobby-pin-banner">
+                <div>
+                  <div style="font-family: var(--font-display); font-size: 0.85rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">
+                    CONTENDER ACCESS PIN
+                  </div>
+                  <div id="lobbyPinValue" class="lobby-pin-value">------</div>
+                </div>
+                <div style="border-left: 1px solid var(--border-cyber); padding-left: 1.5rem; display: flex; flex-direction: column; gap: 0.35rem;">
+                  <div style="font-size: 0.85rem; color: var(--text-secondary);">Direct Contender Link:</div>
+                  <div id="lobbyDirectLink" style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; color: #FFFFFF; word-break: break-all;">
+                    groove.live/player.html
+                  </div>
+                  <button type="button" onclick="copyLobbyJoinUrl()" class="btn-cyber btn-dark" style="align-self: flex-start; padding: 0.35rem 0.85rem; font-size: 0.8rem; margin-top: 0.25rem;">
+                    COPY LINK
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Scannable QR Code Card alongside Access Code -->
+            <div class="lobby-qr-card">
+              <div id="lobbyQrContainer"></div>
+              <div class="lobby-qr-caption">SCAN TO JOIN ARENA</div>
+            </div>
+          </div>
+
+          <!-- Contenders waiting roster -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-cyber); padding-bottom: 0.75rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <h3 style="font-family: var(--font-display); font-size: 1.35rem; font-weight: 900; text-transform: uppercase; margin: 0;">
+                CONTENDERS IN ROOM
+              </h3>
+              <span id="lobbyPlayerBadge" class="hud-pill score-pill">0 CONTENDERS</span>
+            </div>
+            <div style="color: var(--text-muted); font-size: 0.85rem;">
+              Click '✕' next to any contender to remove them
+            </div>
           </div>
 
           <div class="lobby-players-grid" id="lobbyContendersGrid">
@@ -519,7 +570,7 @@
 
           <div style="margin-top: auto; padding-top: 2rem; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-cyber); flex-wrap: wrap; gap: 1rem;">
             <div style="color: var(--text-muted); font-size: 0.95rem;">
-              Click 'X' next to any contender to remove them from this tournament.
+              Waiting for contenders to enter code or scan QR above.
             </div>
             <button onclick="startQuizFromHost()" class="btn-cyber btn-lime btn-lg" style="font-size: 1.3rem; padding: 1.2rem 3rem;">
               START ARENA SHOWDOWN (Q1)
@@ -745,7 +796,41 @@
     </div>
   </div>
 
-  <!-- SignalR & Client Logic -->
+  <!-- MODAL: HUD FULLSCREEN QR CODE -->
+  <div id="hudQrModal" class="modal-overlay" onclick="closeHudQrModal(event)">
+    <div class="modal-card" style="max-width: 500px; text-align: center;" onclick="event.stopPropagation()">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h2 style="font-family: var(--font-display); font-size: 1.7rem; font-weight: 900; text-transform: uppercase; margin: 0;">
+          ROOM ACCESS & QR CODE
+        </h2>
+        <button onclick="closeHudQrModal()" class="btn-cyber btn-dark" style="padding: 0.4rem 0.8rem; font-size: 0.9rem;">✕ CLOSE</button>
+      </div>
+
+      <div style="background: var(--bg-surface-elevated); border: 2px solid var(--border-cyber-active); border-radius: var(--radius-button); padding: 1.25rem; margin-bottom: 1.5rem;">
+        <div style="font-family: var(--font-display); font-size: 0.85rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">
+          CONTENDER ACCESS PIN
+        </div>
+        <div id="hudModalPinValue" class="lobby-pin-value" style="font-size: 3.2rem; margin: 0.4rem 0;">------</div>
+        <div id="hudModalUrlText" style="color: var(--text-secondary); font-size: 0.9rem; word-break: break-all;">
+          player.html?pin=------
+        </div>
+      </div>
+
+      <div class="lobby-qr-card" style="margin: 0 auto 1.5rem auto; display: inline-flex;">
+        <div id="hudModalQrContainer"></div>
+        <div class="lobby-qr-caption">SCAN CAMERA TO JOIN INSTANTLY</div>
+      </div>
+
+      <div>
+        <button onclick="copyLobbyJoinUrl()" class="btn-cyber btn-lime" style="width: 100%; padding: 0.95rem; font-size: 1.05rem;">
+          COPY DIRECT JOIN LINK
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Code Generator, SignalR & Client Logic -->
+  <script src="/js/lib/qrcode.min.js"></script>
   <script src="/js/lib/signalr.min.js"></script>
   <script src="/js/audio.js?v=3.0"></script>
   <script src="/js/host.js?v=3.0"></script>
