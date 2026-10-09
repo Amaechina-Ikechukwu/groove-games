@@ -107,6 +107,14 @@ Your app is now live with zero additional setup!
 
 ---
 
+## ⚠️ Deploy with "stop-first" updates
+
+The database runs inside the app container and stores its files on the mounted volume. Two containers must never run on that volume at once, or the database files get corrupted (symptom: `PANIC: could not locate a valid checkpoint record` and the app never starts).
+
+In Dokploy, open the app, then **Advanced**, then **Cluster Settings**, and set the update order to **stop-first** with one replica. The container also takes a lock on the volume at startup and refuses to start while another container holds it.
+
+If the database is already corrupted, mount a **new** volume (change the volume name in Dokploy). The old volume stays untouched so data can still be recovered from it.
+
 ## 💻 Alternative: Running via Docker Compose
 
 If you prefer using `docker compose` directly on your VPS terminal:
