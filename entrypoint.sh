@@ -33,6 +33,21 @@ EOSQL"
     echo "==> [Groove] PostgreSQL initialization complete."
 fi
 
+# Only one container may run PostgreSQL on this data directory at a time. Two servers on the same files
+# corrupt the database, and it happens silently in a rolling update that starts the new container before
+# the old one stops (each container can't see the other's processes, so Postgres' own lock check passes).
+# A file lock lives in the shared volume, so it works across containers on the same host. The descriptor
+# stays open for the life of this container, including in the processes started below.
+exec 9>"$PGDATA/.groove.lock"
+if ! flock -n 9; then
+    echo "==> [Groove] Another container is using this database. Waiting up to 2 minutes for it to stop..."
+    if ! flock -w 120 9; then
+        echo "==> [Groove] The database is still in use by another container. Refusing to start so it isn't corrupted." >&2
+        echo "    In Dokploy, set the app's update order to 'stop-first' so the old container stops first." >&2
+        exit 1
+    fi
+fi
+
 # Start PostgreSQL server in background
 echo "==> [Groove] Starting PostgreSQL server..."
 if ! su - postgres -c "pg_ctl -D '$PGDATA' -l /var/lib/postgresql/logfile -w start"; then
