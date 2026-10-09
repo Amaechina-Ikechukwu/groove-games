@@ -15,7 +15,7 @@ public class CreateSessionRequest
     public string TournamentName { get; set; } = "";
     public string SessionType { get; set; } = "Single"; // "Single" or "MultiSession"
     public int SessionCount { get; set; } = 1;
-    public bool AutoAdvance { get; set; } = false;
+    public bool AutoAdvance { get; set; } = true;
 }
 
 public class SessionSummaryDto

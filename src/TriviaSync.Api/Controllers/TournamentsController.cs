@@ -413,7 +413,7 @@ public class TournamentsController : ControllerBase
 
     /// <summary>Starts (or returns the already running) live game for a live session.</summary>
     [HttpPost("{id}/sessions/{sessionId}/live")]
-    public ActionResult StartLive(string id, string sessionId, [FromQuery] bool autoAdvance = false)
+    public ActionResult StartLive(string id, string sessionId, [FromQuery] bool autoAdvance = true)
     {
         var t = RequireManage(id);
         var s = RequireSession(t, sessionId);
