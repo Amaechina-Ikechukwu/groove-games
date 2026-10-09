@@ -151,7 +151,7 @@
       buttons.push('<button class="btn btn-ghost btn-sm" data-act="reopen">Reopen…</button>');
     }
     if (s.attemptCount) buttons.push(`<button class="btn btn-ghost btn-sm" data-act="results">Results (${s.attemptCount})</button>`);
-    buttons.push(`<button class="btn btn-ghost btn-icon btn-sm" data-act="remove" aria-label="Delete ${UI.escape(s.title)}" title="Delete session">${UI.icon('trash')}</button>`);
+    buttons.push(`<button class="btn btn-danger-ghost btn-sm" data-act="remove" aria-label="Delete ${UI.escape(s.title)}">${UI.icon('trash')}Delete</button>`);
     return buttons.join('');
   }
 

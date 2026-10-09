@@ -212,15 +212,45 @@
         return;
       }
       list.innerHTML = items.map(t => `
-        <a class="card t-card" href="/tournament.html?id=${encodeURIComponent(t.id)}">
+        <div class="card t-card">
           <div class="spread mb-1">
-            <h3>${UI.escape(t.name)}</h3>
+            <h3><a href="/tournament.html?id=${encodeURIComponent(t.id)}" style="color: inherit; text-decoration: none;">${UI.escape(t.name)}</a></h3>
             ${t.openCount ? `<span class="badge badge-live">${t.openCount} open</span>` : ''}
           </div>
           <p class="subtle">${admin ? `${UI.escape(t.hostName)} · ` : ''}${t.memberCount} player${t.memberCount === 1 ? '' : 's'} · ${t.sessionCount} session${t.sessionCount === 1 ? '' : 's'}</p>
-        </a>`).join('');
+          <div class="row mt-4">
+            <a class="btn btn-secondary btn-sm" href="/tournament.html?id=${encodeURIComponent(t.id)}">Manage</a>
+            <span class="grow"></span>
+            <button type="button" class="btn btn-danger-ghost btn-sm" data-delete="${UI.escape(t.id)}">${UI.icon('trash')}Delete</button>
+          </div>
+        </div>`).join('');
+      list.querySelectorAll('[data-delete]').forEach(b => {
+        b.onclick = () => deleteTournament(items.find(t => t.id === b.dataset.delete));
+      });
     } catch (err) {
       list.innerHTML = `<p class="subtle">${UI.escape(err.message)}</p>`;
+    }
+  }
+
+  async function deleteTournament(t) {
+    const parts = [];
+    if (t.sessionCount) parts.push(`${t.sessionCount} session${t.sessionCount === 1 ? '' : 's'} and their results`);
+    if (t.memberCount) parts.push(`${t.memberCount} player membership${t.memberCount === 1 ? '' : 's'}`);
+    const ok = await UI.confirm({
+      title: `Delete ${t.name}?`,
+      message: `${parts.length ? `This permanently deletes ${parts.join(' and ')}. ` : ''}Any live game in it ends for everyone. This can't be undone.`,
+      confirmText: 'Delete tournament',
+      danger: true,
+      requireText: 'delete',
+    });
+    if (!ok) return;
+    try {
+      await UI.api(`/api/tournaments/${encodeURIComponent(t.id)}`, { method: 'DELETE' });
+      UI.toast(`Deleted ${t.name}`, 'success');
+      loadTournaments();
+      loadRunning();
+    } catch (err) {
+      UI.toast(err.message, 'error');
     }
   }
 
