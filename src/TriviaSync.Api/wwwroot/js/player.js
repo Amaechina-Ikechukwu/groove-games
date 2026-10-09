@@ -143,6 +143,19 @@
     const identifier = $('joinIdentifier').value.trim();
 
     if (pin.length !== 6) return showJoinError('Enter the 6-digit PIN from the host\'s screen.', pinInput);
+
+    // A code can belong to a self-paced tournament session, or to a live one that isn't running yet.
+    const target = await UI.api(`/api/play/code/${encodeURIComponent(pin)}`, { auth: false }).catch(() => null);
+    if (target && target.mode === 'SelfPaced') {
+      location.href = `/play.html?session=${encodeURIComponent(target.sessionId)}`;
+      return;
+    }
+    if (target && target.mode === 'Live' && target.status !== 'Live') {
+      return showJoinError(target.status === 'Closed'
+        ? `“${target.title}” has already been played.`
+        : `The host hasn't started “${target.title}” yet. Try again when they begin.`, pinInput);
+    }
+
     if (name.length < 2) return showJoinError('Enter your name (at least 2 characters).', nameInput);
 
     try { localStorage.setItem(PROFILE_KEY, JSON.stringify({ name, identifier })); } catch (_) { /* ignore */ }

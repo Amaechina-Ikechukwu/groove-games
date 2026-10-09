@@ -105,6 +105,94 @@ public class TournamentServiceTests
         Assert.Throws<TournamentException>(() => _service.OpenSession(s.Id, DateTime.UtcNow.AddHours(-1)));
     }
 
+    private static Question Q(string text = "Capital of France?", params string[] choices) => new()
+    {
+        Text = text,
+        Choices = choices.Length > 0 ? choices.ToList() : new() { "Paris", "Rome" },
+        CorrectIndex = 0,
+        TimeLimitSeconds = 20,
+        Points = 1000
+    };
+
+    [Fact]
+    public void Sessions_GetUniqueSixDigitCodesThatCanBeLookedUp()
+    {
+        var t = _service.Create("host@test.live", "Friday league", "");
+        var a = _service.CreateSession(t.Id, "A", TwoQuestionQuiz(), SessionModes.Live);
+        var b = _service.CreateSession(t.Id, "B", TwoQuestionQuiz(), SessionModes.SelfPaced);
+
+        Assert.Matches(@"^\d{6}$", a.Code);
+        Assert.NotEqual(a.Code, b.Code);
+        Assert.Equal(b.Id, _service.FindSessionByCode(b.Code)!.Id);
+        Assert.True(_service.CodeInUse(a.Code));
+        Assert.Null(_service.FindSessionByCode("000000"));
+    }
+
+    [Fact]
+    public void UpdateSession_ReplacesQuestionsAndRenames()
+    {
+        var t = _service.Create("host@test.live", "Friday league", "");
+        var s = _service.CreateSession(t.Id, "Old name", TwoQuestionQuiz(), SessionModes.SelfPaced);
+
+        var updated = _service.UpdateSession(s.Id, "  New name ", new List<Question> { Q("  Largest planet? ", "Jupiter", "Mars", "Venus") });
+
+        Assert.Equal("New name", updated.Title);
+        var quiz = _service.QuizFor(updated);
+        Assert.Single(quiz.Questions);
+        Assert.Equal("Largest planet?", quiz.Questions[0].Text);
+        Assert.Equal(3, quiz.Questions[0].Choices.Count);
+    }
+
+    [Fact]
+    public void UpdateSession_RejectsIncompleteQuestions()
+    {
+        var t = _service.Create("host@test.live", "Friday league", "");
+        var s = _service.CreateSession(t.Id, "Quiz", TwoQuestionQuiz(), SessionModes.SelfPaced);
+
+        var oneAnswer = Q("Only one?", "Lonely");
+        var duplicate = Q("Twins?", "Same", "same");
+        var noCorrect = Q(); noCorrect.CorrectIndex = 5;
+        var blankText = Q("   ");
+        var tooFast = Q(); tooFast.TimeLimitSeconds = 1;
+
+        foreach (var bad in new[] { oneAnswer, duplicate, noCorrect, blankText, tooFast })
+        {
+            var ex = Assert.Throws<TournamentException>(() => _service.UpdateSession(s.Id, "Quiz", new List<Question> { bad }));
+            Assert.Equal(400, ex.StatusCode);
+        }
+        // Nothing was saved by the failed attempts.
+        Assert.Equal(2, _service.QuizFor(_service.GetSession(s.Id)!).Questions.Count);
+    }
+
+    [Fact]
+    public void UpdateSession_QuestionsLockOncePlayersHavePlayed_ButRenameStillWorks()
+    {
+        var (tournamentId, sessionId) = OpenSelfPaced();
+        _service.EnsureMember(tournamentId, "pat@test.live", "Pat");
+        _service.StartOrResume(sessionId, "pat@test.live", "Pat");
+        Assert.True(_service.QuestionsLocked(_service.GetSession(sessionId)!));
+
+        var ex = Assert.Throws<TournamentException>(() => _service.UpdateSession(sessionId, "Quiz", new List<Question> { Q() }));
+        Assert.Equal(409, ex.StatusCode);
+
+        var renamed = _service.UpdateSession(sessionId, "Renamed", null);
+        Assert.Equal("Renamed", renamed.Title);
+        Assert.Equal(2, _service.QuizFor(renamed).Questions.Count);
+    }
+
+    [Fact]
+    public void BlankSession_CannotBeOpenedUntilItHasQuestions()
+    {
+        var t = _service.Create("host@test.live", "Friday league", "");
+        var s = _service.CreateSession(t.Id, "My own quiz", new Quiz { Title = "My own quiz" }, SessionModes.SelfPaced);
+
+        Assert.Throws<TournamentException>(() => _service.OpenSession(s.Id, DateTime.UtcNow.AddDays(1)));
+
+        _service.UpdateSession(s.Id, "My own quiz", new List<Question> { Q() });
+        var opened = _service.OpenSession(s.Id, DateTime.UtcNow.AddDays(1));
+        Assert.Equal(SessionStatuses.Open, opened.Status);
+    }
+
     [Fact]
     public void EndLive_FinishedGameRecordsResultsAndClosesSession()
     {
