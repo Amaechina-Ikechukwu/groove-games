@@ -35,7 +35,16 @@ fi
 
 # Start PostgreSQL server in background
 echo "==> [Groove] Starting PostgreSQL server..."
-su - postgres -c "pg_ctl -D '$PGDATA' -l /var/lib/postgresql/logfile -w start"
+if ! su - postgres -c "pg_ctl -D '$PGDATA' -l /var/lib/postgresql/logfile -w start"; then
+    echo "==> [Groove] PostgreSQL failed to start. Its log follows:" >&2
+    cat /var/lib/postgresql/logfile >&2 2>/dev/null || echo "(no postgres log was written)" >&2
+    if [ -f "$PGDATA/postmaster.pid" ]; then
+        echo "==> [Groove] $PGDATA/postmaster.pid exists. If another Groove container is still running" >&2
+        echo "    on the same volume, stop it first: in Dokploy set the update order to 'stop-first'." >&2
+    fi
+    ls -la "$PGDATA" >&2 || true
+    exit 1
+fi
 
 # Wait for PostgreSQL to be ready
 echo "==> [Groove] Verifying PostgreSQL is ready..."
