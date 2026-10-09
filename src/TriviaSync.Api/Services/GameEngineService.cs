@@ -648,15 +648,20 @@ public class GameEngineService : IGameEngineService
             int correctCount = session.RoundHistory
                 .Count(r => session.AuditLogs.Any(a => a.PlayerId == player.PlayerId && a.QuestionIndex == r.QuestionIndex && a.PointsEarned > 0));
 
-            _ = _dataService.UpdatePlayerStatsAsync(
-                player.FullName,
-                player.OrganizationId,
-                player.Score,
-                correctCount,
-                player.HighestStreak,
-                player.Identifier,
-                session.HostId,
-                session.RoundHistory.Count);
+            // Tournament scores belong to their tournament (recorded by EndLive below), not to a
+            // leaderboard that adds up every game a player has ever played.
+            if (string.IsNullOrEmpty(session.TournamentSessionId))
+            {
+                _ = _dataService.UpdatePlayerStatsAsync(
+                    player.FullName,
+                    player.OrganizationId,
+                    player.Score,
+                    correctCount,
+                    player.HighestStreak,
+                    player.Identifier,
+                    session.HostId,
+                    session.RoundHistory.Count);
+            }
         }
 
         if (!string.IsNullOrEmpty(session.TournamentSessionId) && _tournaments != null)

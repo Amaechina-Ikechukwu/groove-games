@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Standings · Groove</title>
-  <link rel="stylesheet" href="/css/style.css?v=4.9">
+  <link rel="stylesheet" href="/css/style.css?v=4.10">
   <style>
     .panel { display: none; }
     .panel.is-active { display: block; animation: fade-in .15s ease-out; }
@@ -39,17 +39,17 @@
       <div class="spread mb-6">
         <div>
           <h1>Standings</h1>
-          <p class="muted mt-1">Public tournament standings and all-time scores. They update automatically.</p>
+          <p class="muted mt-1">Each tournament has its own standings. Quick games have a separate board. Both update automatically.</p>
         </div>
         <div class="row-wrap" id="exportButtons" hidden>
-          <button type="button" class="btn btn-secondary btn-sm" id="exportCsv"><span data-icon="download"></span>All-time CSV</button>
-          <button type="button" class="btn btn-secondary btn-sm" id="exportExcel"><span data-icon="download"></span>All-time Excel</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="exportCsv"><span data-icon="download"></span>Quick games CSV</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="exportExcel"><span data-icon="download"></span>Quick games Excel</button>
         </div>
       </div>
 
       <div class="tabs" role="tablist">
         <button class="tab" role="tab" data-tab="panelTournament" aria-selected="true">Tournaments</button>
-        <button class="tab" role="tab" data-tab="panelAllTime">All time</button>
+        <button class="tab" role="tab" data-tab="panelAllTime">Quick games</button>
       </div>
 
       <!-- Tournament -->
@@ -93,7 +93,7 @@
     <a href="/leaderboard.html" aria-current="page"><span data-icon="trophy"></span>Standings</a>
   </nav>
 
-  <script src="/js/ui.js?v=4.9"></script>
+  <script src="/js/ui.js?v=4.10"></script>
   <script>
   (function () {
     const $ = id => document.getElementById(id);

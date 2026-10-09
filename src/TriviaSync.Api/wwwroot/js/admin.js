@@ -440,7 +440,7 @@ Time: 10s`;
   async function resetLeaderboard() {
     const ok = await UI.confirm({
       title: 'Reset all scores?',
-      message: 'Every player\'s all-time points, games played and streaks will be permanently erased. Exports you\'ve downloaded aren\'t affected. This can\'t be undone.',
+      message: 'Every player\'s quick-game points, games played and streaks will be permanently erased. Tournament standings aren\'t affected, and neither are exports you\'ve downloaded. This can\'t be undone.',
       confirmText: 'Reset all scores',
       danger: true,
       requireText: 'reset',

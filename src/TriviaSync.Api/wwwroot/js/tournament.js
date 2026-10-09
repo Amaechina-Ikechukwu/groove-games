@@ -272,7 +272,8 @@
   // ---------------------------------------------------------------------------
   // Session editor
   // ---------------------------------------------------------------------------
-  const emptyQuestion = () => ({ text: '', choices: ['', '', '', ''], correctIndex: 0, timeLimitSeconds: 20, points: 1000 });
+  const emptyQuestion = (seconds = 20) => ({ text: '', choices: ['', '', '', ''], correctIndex: 0, timeLimitSeconds: seconds, points: 1000 });
+  const clampSeconds = v => Math.max(5, Math.min(120, parseInt(v, 10) || 20));
 
   function questionCard(q, i, total, locked) {
     const dis = locked ? 'disabled' : '';
@@ -323,6 +324,13 @@
     const locked = !!data.session.questionsLocked;
     const draft = { title: data.session.title, questions: data.questions.map(q => Object.assign({}, q, { choices: [...q.choices] })) };
     let dirty = false;
+    // The time most questions already use, so the "time per question" box starts on a sensible value.
+    const commonTime = (() => {
+      const counts = {};
+      draft.questions.forEach(q => { counts[q.timeLimitSeconds] = (counts[q.timeLimitSeconds] || 0) + 1; });
+      const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+      return best ? Number(best[0]) : 20;
+    })();
     const lockedWhy = data.session.status === 'Live'
       ? 'A live game is running, so the questions are locked. End it first to change them.'
       : 'Players have already played this session, so changing the questions would change their scores. You can still rename it.';
@@ -343,6 +351,16 @@
             <label class="label" for="editName">Session name</label>
             <input class="input" id="editName" maxlength="100" value="${UI.escape(draft.title)}">
           </div>
+          ${locked ? '' : `
+            <div class="field mb-4">
+              <label class="label" for="defaultTime">Time per question</label>
+              <div class="row-wrap">
+                <input class="input" id="defaultTime" type="number" min="5" max="120" value="${commonTime}" style="width: 110px;" inputmode="numeric">
+                <span class="muted">seconds</span>
+                <button type="button" class="btn btn-secondary btn-sm" data-act="apply-time">Apply to all questions</button>
+              </div>
+              <span class="hint">5 to 120 seconds. You can still give any question its own time below. New questions start with this time.</span>
+            </div>`}
           <div class="spread mb-2">
             <h3>Questions <span class="muted num" id="qCount"></span></h3>
             ${locked ? '' : `<div class="row-wrap">
@@ -396,7 +414,7 @@
         });
 
         const addQuestion = () => {
-          draft.questions.push(emptyQuestion());
+          draft.questions.push(emptyQuestion(clampSeconds(el.querySelector('#defaultTime').value)));
           touch();
           render();
           const last = list.querySelector('.q-card:last-child [data-f="text"]');
@@ -518,6 +536,16 @@
           if (act === 'cancel') return cancel();
           if (act === 'save') return save();
           if (act === 'add-q') return addQuestion();
+          if (act === 'apply-time') {
+            const input = el.querySelector('#defaultTime');
+            const seconds = clampSeconds(input.value);
+            input.value = seconds;
+            if (!draft.questions.length) return UI.toast(`New questions will use ${seconds} seconds`);
+            draft.questions.forEach(q => { q.timeLimitSeconds = seconds; });
+            touch();
+            render();
+            return UI.toast(`Every question now has ${seconds} seconds`, 'success');
+          }
           if (act === 'import') return importPasted();
           if (act === 'toggle-paste') return togglePaste();
           const card = b.closest('[data-qi]');

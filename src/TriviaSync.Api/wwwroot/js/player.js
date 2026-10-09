@@ -10,6 +10,7 @@
   let connection = null;
   let game = null;           // { pin, name, identifier } once joined
   let hostId = '';
+  let roomInfo = null;       // what kind of game this is: { type, tournamentId, tournamentName, pin }
   let questionIndex = -1;
   let answered = false;
   let timeLimit = 20;
@@ -202,46 +203,62 @@
   // Standings dialog
   // ---------------------------------------------------------------------------
   async function openStandings() {
+    const inTournament = !!(roomInfo && roomInfo.type === 'Tournament' && roomInfo.tournamentId);
     UI.openDialog({
       wide: true,
       labelledBy: 'standingsTitle',
       render(el, close) {
+        const heading = inTournament ? 'Tournament standings' : 'This game';
+        const blurb = inTournament
+          ? `${UI.escape(roomInfo.tournamentName)}: points from this tournament's finished sessions. Your current game is added when it ends.`
+          : 'Points in this game so far.';
         el.innerHTML = `
           <div class="dialog-head">
             <div>
-              <h2 class="dialog-title" id="standingsTitle">Standings</h2>
-              <p class="dialog-body">Total points across every game run by this host.</p>
+              <h2 class="dialog-title" id="standingsTitle">${heading}</h2>
+              <p class="dialog-body">${blurb}</p>
             </div>
             <button class="btn btn-ghost btn-icon btn-sm" data-close aria-label="Close">${UI.icon('x')}</button>
           </div>
           <div class="table-wrap">
             <table class="table">
-              <thead><tr><th>#</th><th>Player</th><th class="right">Points</th><th class="right hide-sm">Games</th><th class="right">Accuracy</th></tr></thead>
+              <thead><tr><th>#</th><th>Player</th><th class="right">Points</th>${inTournament ? '<th class="right hide-sm">Sessions</th><th class="right">Correct</th>' : ''}</tr></thead>
               <tbody><tr><td colspan="5" class="empty-row">Loading…</td></tr></tbody>
             </table>
           </div>
-          <div class="dialog-actions"><a class="btn btn-secondary" href="/leaderboard.html" target="_blank" rel="noopener">Open full standings</a></div>`;
+          ${inTournament ? `<div class="dialog-actions"><a class="btn btn-secondary" href="/tournament.html?id=${encodeURIComponent(roomInfo.tournamentId)}" target="_blank" rel="noopener">Open tournament page</a></div>` : ''}`;
         el.querySelector('[data-close]').onclick = () => close();
 
         const tbody = el.querySelector('tbody');
-        const url = hostId ? `/api/leaderboard?hostId=${encodeURIComponent(hostId)}` : '/api/leaderboard';
-        UI.api(url, { auth: false }).then(players => {
-          if (!players.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-row">No scores yet. They appear after the first game finishes.</td></tr>';
-            return;
-          }
-          const me = game && game.name.toLowerCase();
-          tbody.innerHTML = players.map((p, i) => `
-            <tr class="${me && p.fullName.toLowerCase() === me ? 'is-me' : ''}">
-              <td>${UI.rankBadge(i + 1)}</td>
-              <td><div class="player-cell">${UI.avatar(p.fullName)}${UI.escape(p.fullName)}${me && p.fullName.toLowerCase() === me ? ' <span class="badge badge-accent">You</span>' : ''}</div></td>
-              <td class="right score">${UI.formatNumber(p.totalPointsAllTime)}</td>
-              <td class="right hide-sm num">${p.quizzesPlayed || 0}</td>
-              <td class="right num">${Math.round(p.accuracyPercentage || 0)}%</td>
-            </tr>`).join('');
-        }).catch(err => {
-          tbody.innerHTML = `<tr><td colspan="5" class="empty-row">${UI.escape(err.message)}</td></tr>`;
-        });
+        const me = game && game.name.toLowerCase();
+        const youBadge = name => me && name.toLowerCase() === me ? ' <span class="badge badge-accent">You</span>' : '';
+        const empty = text => { tbody.innerHTML = `<tr><td colspan="5" class="empty-row">${text}</td></tr>`; };
+
+        if (inTournament) {
+          UI.api(`/api/tournaments/${encodeURIComponent(roomInfo.tournamentId)}/standings`, { auth: false }).then(data => {
+            const rows = data.standings;
+            if (!rows.length) return empty('No scores yet. They appear when the first session finishes.');
+            tbody.innerHTML = rows.map(p => `
+              <tr class="${me && p.displayName.toLowerCase() === me ? 'is-me' : ''}">
+                <td>${UI.rankBadge(p.rank)}</td>
+                <td><div class="player-cell">${UI.avatar(p.displayName)}${UI.escape(p.displayName)}${youBadge(p.displayName)}</div></td>
+                <td class="right score">${UI.formatNumber(p.totalScore)}</td>
+                <td class="right hide-sm num">${p.sessionsPlayed}</td>
+                <td class="right num">${p.correct}/${p.answered}</td>
+              </tr>`).join('');
+          }).catch(err => empty(UI.escape(err.message)));
+        } else {
+          UI.api(`/api/sessions/${encodeURIComponent(roomInfo ? roomInfo.pin : game.pin)}`, { auth: false }).then(data => {
+            const rows = (data.players || []).slice().sort((a, b) => b.score - a.score);
+            if (!rows.length) return empty('No scores yet.');
+            tbody.innerHTML = rows.map((p, i) => `
+              <tr class="${me && p.fullName.toLowerCase() === me ? 'is-me' : ''}">
+                <td>${UI.rankBadge(i + 1)}</td>
+                <td><div class="player-cell">${UI.avatar(p.fullName)}${UI.escape(p.fullName)}${youBadge(p.fullName)}</div></td>
+                <td class="right score">${UI.formatNumber(p.score)}</td>
+              </tr>`).join('');
+          }).catch(err => empty(UI.escape(err.message)));
+        }
       },
     });
   }
@@ -252,6 +269,7 @@
   function onRoomState(state) {
     joining = false;
     hostId = state.hostId || '';
+    roomInfo = { type: state.sessionType, tournamentId: state.tournamentId, tournamentName: state.tournamentName, pin: state.pin };
     const p = state.player;
     game.name = p.fullName;
     saveGame();
