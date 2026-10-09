@@ -253,6 +253,17 @@ public class QuizHub : Hub<IQuizClient>
         }
     }
 
+    public async Task SetAutoAdvance(string pin, bool enabled)
+    {
+        var session = await GetControlledSessionAsync(pin);
+        if (session == null)
+        {
+            return;
+        }
+
+        session.AutoAdvance = enabled;
+    }
+
     public async Task EndQuestion(string pin)
     {
         var session = await GetControlledSessionAsync(pin);

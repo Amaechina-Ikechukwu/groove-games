@@ -411,6 +411,8 @@
     primary.hidden = false;
     primary.disabled = false;
     end.textContent = 'End game';
+    $('autoWrap').hidden = state === 'GameEnded';
+    $('autoHint').hidden = !$('autoToggle').checked;
 
     switch (state) {
       case 'Lobby':
@@ -569,6 +571,7 @@
     pin = r.pin;
     state = r.state;
     players = r.allPlayers || [];
+    $('autoToggle').checked = !!r.autoAdvance;
     setUrl({ pin });
     showView('viewGame');
 
@@ -757,6 +760,18 @@
 
     $('hudPrimary').onclick = onPrimary;
     $('hudEnd').onclick = endCurrentGame;
+    $('autoToggle').onchange = async e => {
+      const enabled = e.target.checked;
+      try {
+        await connection.invoke('SetAutoAdvance', pin, enabled);
+        if (room) room.autoAdvance = enabled;
+        $('autoHint').hidden = !enabled;
+        UI.toast(enabled ? 'Questions will move on automatically' : 'You will move on manually');
+      } catch (_) {
+        e.target.checked = !enabled;
+        UI.toast("Couldn't change that. Check your connection.", 'error');
+      }
+    };
     $('hudQr').onclick = openQrDialog;
     $('copyLink').onclick = () => UI.copyText(joinLink(pin), 'Join link copied');
     $('exportCsv').onclick = () => exportResults('csv');

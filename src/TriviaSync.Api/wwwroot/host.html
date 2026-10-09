@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Host · Groove</title>
-  <link rel="stylesheet" href="/css/style.css?v=4.6">
+  <link rel="stylesheet" href="/css/style.css?v=4.7">
   <style>
     .view { display: none; }
     .view.is-active { display: block; animation: fade-in .2s ease-out; }
@@ -25,6 +25,8 @@
     .hud-title { min-width: 160px; flex: 1; }
     .hud-title div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .hud-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .auto-toggle { align-items: center; font-weight: 600; font-size: 0.875rem; color: var(--text-2); padding: 0 6px; }
+    .auto-toggle input { margin-top: 0; }
 
     .game-stage { display: none; padding: 28px 0 48px; }
     .game-stage.is-active { display: block; animation: fade-in .2s ease-out; }
@@ -124,8 +126,8 @@
           </div>
 
           <label class="check">
-            <input type="checkbox" id="autoAdvance">
-            <span>Move on automatically<br><span class="subtle">After each question's standings, the next question starts after 5 seconds.</span></span>
+            <input type="checkbox" id="autoAdvance" checked>
+            <span>Move to the next question automatically<br><span class="subtle">When the time is up, the answer shows, then the standings, then the next question starts on its own. You can turn this off during the game.</span></span>
           </label>
 
           <div class="card-footer" style="margin-top: 8px;">
@@ -159,6 +161,10 @@
         </div>
         <span class="badge" id="hudPlayers"><span data-icon="users"></span><span>0 players</span></span>
         <div class="hud-actions">
+          <label class="check auto-toggle" id="autoWrap" title="Move on by itself after each question">
+            <input type="checkbox" id="autoToggle">
+            <span>Auto-advance</span>
+          </label>
           <button type="button" class="btn btn-danger-ghost" id="hudEnd">End game</button>
           <button type="button" class="btn btn-primary" id="hudPrimary">Start game</button>
         </div>
@@ -217,6 +223,7 @@
           <span class="badge" id="standingsLabel"></span>
         </div>
         <div class="standings" id="standingsList"></div>
+        <p class="subtle mt-4" id="autoHint" hidden>The next question starts automatically in a few seconds.</p>
       </section>
 
       <!-- Podium -->
@@ -247,8 +254,8 @@
 
   <script src="/js/lib/qrcode.min.js"></script>
   <script src="/js/lib/signalr.min.js"></script>
-  <script src="/js/audio.js?v=4.6"></script>
-  <script src="/js/ui.js?v=4.6"></script>
-  <script src="/js/host.js?v=4.6"></script>
+  <script src="/js/audio.js?v=4.7"></script>
+  <script src="/js/ui.js?v=4.7"></script>
+  <script src="/js/host.js?v=4.7"></script>
 </body>
 </html>

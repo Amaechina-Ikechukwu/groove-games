@@ -13,8 +13,10 @@
   let clock = null;
   let submitting = false;
   let stage = 'stageLoading';
+  let feedbackTimer = null;   // auto-continue after a question times out
 
   function show(id) {
+    if (id !== 'stageFeedback') clearInterval(feedbackTimer);
     stage = id;
     document.querySelectorAll('.stage').forEach(s => s.classList.toggle('is-active', s.id === id));
     window.scrollTo(0, 0);
@@ -186,9 +188,21 @@
     $('fbAnswer').innerHTML = result.isCorrect ? '' : `
       <p class="subtle mb-2">The answer was</p>
       <div class="answer answer-${result.correctIndex % 6}" style="min-height: 64px;">${UI.shape(result.correctIndex)}<span class="answer-text">${UI.escape(choices[result.correctIndex])}</span></div>`;
-    $('nextButton').textContent = state.done ? 'See your result' : 'Next question';
+    const nextLabel = state.done ? 'See your result' : 'Next question';
+    $('nextButton').textContent = nextLabel;
     show('stageFeedback');
     $('nextButton').focus();
+    // Out of time: show the answer briefly, then move on without waiting for a tap.
+    clearInterval(feedbackTimer);
+    if (result.timedOut) {
+      let left = 3;
+      $('nextButton').textContent = `${nextLabel} (${left})`;
+      feedbackTimer = setInterval(() => {
+        left--;
+        if (left <= 0) { clearInterval(feedbackTimer); $('nextButton').click(); }
+        else $('nextButton').textContent = `${nextLabel} (${left})`;
+      }, 1000);
+    }
     if (window.sounds) result.isCorrect ? window.sounds.correct() : window.sounds.wrong();
   }
 
@@ -208,7 +222,10 @@
   // ---------------------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
     $('startButton').onclick = e => next(e.currentTarget);
-    $('nextButton').onclick = e => (state && state.done ? showDone(state) : next(e.currentTarget));
+    $('nextButton').onclick = e => {
+      clearInterval(feedbackTimer);
+      return state && state.done ? showDone(state) : next(e.currentTarget);
+    };
 
     const inProgress = () => stage === 'stageQuestion' || stage === 'stageFeedback';
     $('brandLink').addEventListener('click', async e => {

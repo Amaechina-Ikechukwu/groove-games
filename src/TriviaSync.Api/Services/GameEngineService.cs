@@ -580,14 +580,16 @@ public class GameEngineService : IGameEngineService
                 topPlayers = topPlayers
             });
 
-            // If AutoAdvance is true, automatically advance after 5 seconds
-            if (session.AutoAdvance)
+            // Give players a few seconds on the standings, then move on if auto-advance is (still) on.
+            // The flag is read after the pause so the host can toggle it while standings are showing.
+            var questionIndex = session.CurrentQuestionIndex;
+            await Task.Delay(5000);
+            if (session.AutoAdvance &&
+                _sessions.ContainsKey(session.Pin) &&
+                session.State == GameState.RoundLeaderboard &&
+                session.CurrentQuestionIndex == questionIndex)
             {
-                await Task.Delay(5000);
-                if (_sessions.ContainsKey(session.Pin) && session.State == GameState.RoundLeaderboard)
-                {
-                    await AdvanceQuestionAsync(session.Pin);
-                }
+                await AdvanceQuestionAsync(session.Pin);
             }
         }
     }
