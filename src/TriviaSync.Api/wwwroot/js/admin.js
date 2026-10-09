@@ -88,7 +88,7 @@ Time: 10s`;
           <td class="right num">${t.memberCount}</td>
           <td class="right hide-sm num">${t.sessionCount}</td>
           <td class="right">${t.openCount ? `<span class="badge badge-live">${t.openCount}</span>` : '<span class="subtle">–</span>'}</td>
-          <td class="hide-sm muted">${new Date(t.createdAt).toLocaleDateString()}</td>
+          <td class="hide-sm muted">${UI.stamp(t.createdAt)}</td>
         </tr>`).join('') : '<tr><td colspan="6" class="empty-row">No tournaments yet.</td></tr>';
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="6" class="empty-row">${UI.escape(err.message)}</td></tr>`;
@@ -369,7 +369,7 @@ Time: 10s`;
       list.innerHTML = quizzes.map(q => `
         <div class="card quiz-card">
           <h3>${UI.escape(q.title)}</h3>
-          <p class="subtle">${q.questions.length} question${q.questions.length === 1 ? '' : 's'} · ${new Date(q.createdAt).toLocaleDateString()}${q.createdBy ? ` · ${UI.escape(q.createdBy)}` : ''}</p>
+          <p class="subtle">${q.questions.length} question${q.questions.length === 1 ? '' : 's'} · ${UI.stamp(q.createdAt)}${q.createdBy ? ` · ${UI.escape(q.createdBy)}` : ''}</p>
           <div class="row mt-4">
             <button type="button" class="btn btn-secondary btn-sm" data-start="${UI.escape(q.id)}">${UI.icon('play')}Start a game</button>
             <span class="grow"></span>
@@ -430,7 +430,7 @@ Time: 10s`;
           <td class="right hide-sm num">${p.quizzesPlayed || 0}</td>
           <td class="right num">${Math.round(p.accuracyPercentage || 0)}%</td>
           <td class="right hide-sm num">${p.highestStreak || 0}</td>
-          <td class="hide-sm muted">${new Date(p.lastActive).toLocaleDateString()}</td>
+          <td class="hide-sm muted">${UI.stamp(p.lastActive)}</td>
         </tr>`).join('');
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="8" class="empty-row">${UI.escape(err.message)}</td></tr>`;
@@ -493,7 +493,7 @@ Time: 10s`;
             ${['Player', 'Host', 'Admin'].map(r => `<option ${r === u.role ? 'selected' : ''}>${r}</option>`).join('')}
           </select>
         </td>
-        <td class="hide-sm muted">${new Date(u.createdAt).toLocaleDateString()}</td>
+        <td class="hide-sm muted">${UI.stamp(u.createdAt)}</td>
       </tr>`).join('');
     $('peopleTable').querySelectorAll('select').forEach(sel => { sel.onchange = () => changeRole(sel); });
   }

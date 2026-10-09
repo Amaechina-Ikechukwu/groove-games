@@ -77,6 +77,17 @@
     return Number(n || 0).toLocaleString();
   }
 
+  /**
+   * A date and time as a <time> element: "9 Oct 2026, 10:20" in the viewer's time zone,
+   * with the exact UTC time on hover. Returns an HTML string (the value is escaped).
+   */
+  function stamp(value) {
+    const d = value ? new Date(value) : null;
+    if (!d || isNaN(d)) return '';
+    const text = d.toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    return `<time datetime="${d.toISOString()}" title="${escape(d.toUTCString())}">${escape(text)}</time>`;
+  }
+
   function formatDateTime(value) {
     return new Date(value).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   }
@@ -528,7 +539,7 @@
 
   window.UI = {
     hydrateIcons,
-    icon, shape, SHAPES, escape, initials, avatar, rankBadge, formatNumber, formatDateTime, relativeTime, toLocalInput,
+    icon, shape, SHAPES, escape, initials, avatar, rankBadge, formatNumber, formatDateTime, stamp, relativeTime, toLocalInput,
     toast, openDialog, confirm, notice,
     api, ApiError, download, busy, copyText,
     signIn, signOut, renderAccount,

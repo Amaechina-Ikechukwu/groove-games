@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My tournaments · Groove</title>
-  <link rel="stylesheet" href="/css/style.css?v=4.8">
+  <link rel="stylesheet" href="/css/style.css?v=4.9">
   <style>
     .view { display: none; }
     .view.is-active { display: block; animation: fade-in .15s ease-out; }
@@ -95,7 +95,7 @@
     <a href="/leaderboard.html"><span data-icon="trophy"></span>Standings</a>
   </nav>
 
-  <script src="/js/ui.js?v=4.8"></script>
+  <script src="/js/ui.js?v=4.9"></script>
   <script>
   (function () {
     const $ = id => document.getElementById(id);
@@ -154,7 +154,7 @@
             <td class="right score">${UI.formatNumber(r.score)}</td>
             <td class="right num">${r.correct}/${r.questionCount}</td>
             <td class="right num">${r.rank} of ${r.playerCount}</td>
-            <td class="hide-sm muted">${new Date(r.playedAt).toLocaleDateString()}</td>
+            <td class="hide-sm muted">${UI.stamp(r.playedAt)}</td>
           </tr>`).join('');
       } catch (err) {
         tbody.innerHTML = `<tr><td colspan="6" class="empty-row">${UI.escape(err.message)}</td></tr>`;

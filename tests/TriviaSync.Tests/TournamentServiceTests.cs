@@ -218,4 +218,47 @@ public class TournamentServiceTests
         Assert.Equal(SessionStatuses.Draft, _service.GetSession(s.Id)!.Status);
         Assert.Empty(_service.Standings(t.Id));
     }
+
+    [Fact]
+    public void SelfPaced_RecordsWhenOpenedAndClosed_AndKeepsTheOriginalDeadline()
+    {
+        var t = _service.Create("host@test.live", "Friday league", "");
+        var s = _service.CreateSession(t.Id, "Quiz", TwoQuestionQuiz(), SessionModes.SelfPaced);
+        Assert.Null(s.OpenedAt);
+        Assert.True(s.CreatedAt <= DateTime.UtcNow);
+
+        var deadline = DateTime.UtcNow.AddDays(2);
+        _service.OpenSession(s.Id, deadline);
+        Assert.NotNull(s.OpenedAt);
+        Assert.Null(s.ClosedAt);
+        var firstOpened = s.OpenedAt;
+
+        _service.CloseSession(s.Id);
+        Assert.NotNull(s.ClosedAt);
+        Assert.True(s.ClosesAt > DateTime.UtcNow.AddDays(1), "closing early must not overwrite the deadline");
+
+        // Reopening clears the closed time but keeps when it was first opened.
+        _service.OpenSession(s.Id, DateTime.UtcNow.AddDays(3));
+        Assert.Null(s.ClosedAt);
+        Assert.Equal(firstOpened, s.OpenedAt);
+    }
+
+    [Fact]
+    public void LiveSession_RecordsStartAndFinish_AndResetsWhenEndedEarly()
+    {
+        var t = _service.Create("host@test.live", "Friday league", "");
+        var finished = _service.CreateSession(t.Id, "Finished", TwoQuestionQuiz(), SessionModes.Live);
+        var abandoned = _service.CreateSession(t.Id, "Abandoned", TwoQuestionQuiz(), SessionModes.Live);
+
+        _service.SetLive(finished.Id, "111111");
+        Assert.NotNull(finished.OpenedAt);
+        _service.EndLive(finished.Id, finished: true, Array.Empty<LivePlayerResult>());
+        Assert.NotNull(finished.ClosedAt);
+        Assert.True(finished.ClosedAt >= finished.OpenedAt);
+
+        _service.SetLive(abandoned.Id, "222222");
+        _service.EndLive(abandoned.Id, finished: false, Array.Empty<LivePlayerResult>());
+        Assert.Null(abandoned.OpenedAt);
+        Assert.Null(abandoned.ClosedAt);
+    }
 }
