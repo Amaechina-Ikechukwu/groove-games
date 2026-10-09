@@ -10,6 +10,9 @@
   let canManage = false;
   let isMember = false;
   let activeTab = null;
+  let resultsRefresh = null;  // set while a session's results dialog is open
+  let deadlineTimer = null;
+  let subscribed = { member: false, manager: false };
 
   // ---------------------------------------------------------------------------
   // Loading
@@ -44,6 +47,21 @@
     $('loading').hidden = true;
     $('content').hidden = false;
     if (!activeTab) selectTab(detail ? 'panelSessions' : 'panelStandings');
+    followLiveTopics();
+  }
+
+  /** Live updates: public standings for everyone, plus sessions/players for members, plus results for the host. */
+  function followLiveTopics() {
+    Live.subscribe(`tournament:${tournamentId}:pub`);
+    const member = !!detail;
+    if (member !== subscribed.member) {
+      member ? Live.subscribe(`tournament:${tournamentId}`) : Live.unsubscribe(`tournament:${tournamentId}`);
+      subscribed.member = member;
+    }
+    if (canManage !== subscribed.manager) {
+      canManage ? Live.subscribe(`tournament:${tournamentId}:mgr`) : Live.unsubscribe(`tournament:${tournamentId}:mgr`);
+      subscribed.manager = canManage;
+    }
   }
 
   function showNotFound() {
@@ -172,6 +190,14 @@
   function renderSessions() {
     const list = $('sessionList');
     const sessions = detail.sessions || [];
+    // A session closes by itself at its deadline, which no server message announces. Refresh just after.
+    clearTimeout(deadlineTimer);
+    const nextDeadline = sessions
+      .filter(x => x.status === 'Open' && x.closesAt)
+      .map(x => new Date(x.closesAt).getTime())
+      .filter(t => t > Date.now())
+      .sort((a, b) => a - b)[0];
+    if (nextDeadline) deadlineTimer = setTimeout(refreshSessions, Math.min(nextDeadline - Date.now() + 1000, 2147483000));
     if (!sessions.length) {
       list.innerHTML = canManage
         ? '<div class="empty"><h3>No sessions yet</h3><p>Add a live game or a self-paced quiz with a deadline.</p></div>'
@@ -848,7 +874,7 @@
             <tbody><tr><td colspan="7" class="empty-row">Loading…</td></tr></tbody>
           </table></div>`;
         el.querySelector('[data-close]').onclick = () => close();
-        UI.api(sessionUrl(s, '/results')).then(r => {
+        const loadRows = () => UI.api(sessionUrl(s, '/results')).then(r => {
           el.querySelector('tbody').innerHTML = r.attempts.map((a, i) => `
             <tr>
               <td>${UI.rankBadge(i + 1)}</td>
@@ -862,8 +888,10 @@
         }).catch(err => {
           el.querySelector('tbody').innerHTML = `<tr><td colspan="7" class="empty-row">${UI.escape(err.message)}</td></tr>`;
         });
+        resultsRefresh = loadRows;
+        loadRows();
       },
-    });
+    }).done.then(() => { resultsRefresh = null; });
   }
 
   // ---------------------------------------------------------------------------
@@ -1024,12 +1052,24 @@
     $('joinCode').title = 'Click to show full screen';
     $('copyLink').onclick = () => UI.copyText(`${location.origin}/tournaments.html?join=${encodeURIComponent(detail.joinCode)}`, 'Invite link copied');
 
-    // Keep live status, deadlines and scores fresh while the page is open.
-    setInterval(() => {
-      if (document.hidden || !info) return;
-      if (activeTab === 'panelSessions' && detail) refreshSessions();
-      if (activeTab === 'panelStandings') refreshStandings();
-    }, 20000);
+    // Everything updates as it happens. Each message only says what changed; we re-fetch that part.
+    Live.on('sessions', () => detail && refreshSessions());
+    Live.on('attempts', () => { if (canManage) { refreshSessions(); if (resultsRefresh) resultsRefresh(); } });
+    Live.on('standings', () => { if (info) { refreshStandings(); if (resultsRefresh) resultsRefresh(); } });
+    Live.on('members', () => (canManage ? loadMembers() : load()));
+    Live.on('details', () => load());
+    Live.on('deleted', () => {
+      if (detail) {
+        UI.toast('This tournament was deleted.', 'error');
+        location.href = canManage ? '/host.html' : '/tournaments.html';
+      } else {
+        showNotFound();
+      }
+    });
+    Live.onReconnect(() => load());
+
+    // "closes in 3 hours" and similar text stay accurate without a re-fetch.
+    setInterval(() => { if (!document.hidden && detail) renderSessions(); }, 30000);
 
     Session.onChange(load);
     load();

@@ -38,6 +38,7 @@ Time: 10s`;
       return showView('viewDenied');
     }
     showView('viewAdmin');
+    Live.subscribe('admin');
     loadQuizzes();
     loadTournaments();
     loadGames();
@@ -563,7 +564,17 @@ Time: 10s`;
     $('exportCsv').onclick = e => exportLeaderboard('csv', e.currentTarget);
     $('exportExcel').onclick = e => exportLeaderboard('excel', e.currentTarget);
     $('peopleSearch').addEventListener('input', renderPeople);
-    $('refreshGames').onclick = loadGames;
+    // Live: whatever happens anywhere on the platform shows up here without a refresh.
+    const admin = () => Session.isAdmin();
+    Live.on('tournaments', () => { if (admin()) loadTournaments(); });
+    Live.on('games', () => { if (admin()) loadGames(); });
+    Live.on('people', () => { if (admin()) loadPeople(); });
+    Live.on('quizzes', () => { if (admin()) loadQuizzes(); });
+    Live.on('leaderboard', () => { if (admin()) loadLeaderboard(); });
+    Live.onReconnect(() => {
+      if (!admin()) return;
+      loadQuizzes(); loadTournaments(); loadGames(); loadPeople(); loadLeaderboard();
+    });
 
     document.querySelectorAll('[data-guard-nav]').forEach(a => {
       a.addEventListener('click', async e => {

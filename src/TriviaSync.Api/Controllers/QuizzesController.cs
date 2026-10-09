@@ -18,9 +18,11 @@ public class QuizzesController : ControllerBase
     private readonly IQuizParserEngine _parser;
     private readonly ITriviaDataService _dataService;
     private readonly ILogger<QuizzesController> _logger;
+    private readonly ILiveNotifier _live;
 
-    public QuizzesController(IQuizParserEngine parser, ITriviaDataService dataService, ILogger<QuizzesController> logger)
+    public QuizzesController(IQuizParserEngine parser, ITriviaDataService dataService, ILogger<QuizzesController> logger, ILiveNotifier live)
     {
+        _live = live;
         _parser = parser;
         _dataService = dataService;
         _logger = logger;
@@ -70,6 +72,7 @@ public class QuizzesController : ControllerBase
 
         quiz.CreatedBy = User.UserEmail() ?? quiz.CreatedBy;
         var saved = await _dataService.SaveQuizAsync(quiz);
+        _live.Publish(LiveTopics.Admin, "quizzes");
         return CreatedAtAction(nameof(GetQuizById), new { id = saved.Id }, saved);
     }
 
@@ -80,6 +83,7 @@ public class QuizzesController : ControllerBase
         var deleted = await _dataService.DeleteQuizAsync(id);
         if (deleted)
         {
+            _live.Publish(LiveTopics.Admin, "quizzes");
             return Ok(new { message = $"Quiz '{id}' deleted." });
         }
         return NotFound(new { message = $"Quiz '{id}' not found." });

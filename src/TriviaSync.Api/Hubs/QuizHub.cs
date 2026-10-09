@@ -19,6 +19,32 @@ public class QuizHub : Hub<IQuizClient>
         _logger = logger;
     }
 
+    /// <summary>
+    /// Subscribes this connection to live updates. Topics: public, user, admin, tournament:{id},
+    /// tournament:{id}:pub, tournament:{id}:mgr. Returns false if the caller may not subscribe.
+    /// </summary>
+    public async Task<bool> Subscribe(string topic)
+    {
+        var group = ResolveTopic(topic);
+        if (group == null)
+        {
+            return false;
+        }
+        await Groups.AddToGroupAsync(Context.ConnectionId, group);
+        return true;
+    }
+
+    public async Task Unsubscribe(string topic)
+    {
+        var group = ResolveTopic(topic);
+        if (group != null)
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, group);
+        }
+    }
+
+    private string? ResolveTopic(string? topic) => LiveTopics.Resolve(topic, Context.User, _tournaments);
+
     public async Task JoinRoom(string pin, string fullName, string identifier = "", string organizationId = "global")
     {
         var cleanPin = pin?.Trim().ToUpperInvariant() ?? string.Empty;

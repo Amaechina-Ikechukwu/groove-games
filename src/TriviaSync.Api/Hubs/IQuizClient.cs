@@ -16,5 +16,7 @@ public interface IQuizClient
     Task GameEnded(object payload);
     Task SessionClosed(object payload);
     Task SignInRequired(object payload);
+    /// <summary>A kind of data changed for a live-update group. Clients re-fetch what they show.</summary>
+    Task Changed(string group, string kind);
     Task ErrorNotification(string message);
 }
