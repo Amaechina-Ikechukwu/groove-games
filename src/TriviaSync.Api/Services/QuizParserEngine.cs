@@ -7,7 +7,7 @@ namespace TriviaSync.Api.Services;
 public class QuizParserEngine : IQuizParserEngine
 {
     private static readonly Regex QuestionHeaderRegex = new(
-        @"^(?:#{1,6}\s*)?(?:(?:Q(?:uestion)?\s*(\d+)[:\.\-\)]?)|(?:(\d+)[\.\)\-]))\s*(.*)$",
+        @"^(?:#{1,6}\s*)?(?:Q(?:uestion)?\s*(?:(\d+)[:\.\-\)]?|[:\.\-\)])|(\d+)[\.\)\-])\s*(.*)$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex ChoicePrefixRegex = new(
@@ -15,7 +15,7 @@ public class QuizParserEngine : IQuizParserEngine
         RegexOptions.Compiled);
 
     private static readonly Regex AnswerKeywordRegex = new(
-        @"^(?:Answer|Ans|Correct|Key)[:\s]+([A-Fa-f0-9]+|true|false|.+)$",
+        @"^(?:(?:(?:Correct|Right)\s+)?(?:Answer|Ans|Solution|Key)|Correct|Right)\s*(?:[:\-=]\s*|\s+)(.+)$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex TimeRegex = new(
@@ -25,6 +25,42 @@ public class QuizParserEngine : IQuizParserEngine
     private static readonly Regex PointsRegex = new(
         @"(?:Points?|Pts|Score)[:\s]+(\d+)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex ChoiceLetterRegex = new(
+        @"^(?:[-+\u2022]\s*)?\(?[A-Fa-f][\.\)]\s+\S",
+        RegexOptions.Compiled);
+
+    private static readonly Regex CheckMarkRegex = new(
+        @"\s*[\u2713\u2714\u2705\u2611]\uFE0F?\s*",
+        RegexOptions.Compiled);
+
+    /// <summary>
+    /// Cleans one pasted line: removes markdown emphasis and quote markers, and turns the usual
+    /// "this is the right one" signals (check marks, a fully bold choice) into a trailing asterisk.
+    /// </summary>
+    private static string NormalizeLine(string raw)
+    {
+        var t = raw.Trim().Trim('\uFEFF', '\u200B');
+        if (t.Length == 0) return t;
+
+        while (t.StartsWith(">")) t = t[1..].TrimStart();
+        if (t.StartsWith("\u2022")) t = "- " + t[1..].TrimStart();
+
+        var wasBold = t.Length > 4 && t.StartsWith("**") && t.EndsWith("**");
+        t = t.Replace("**", "").Replace("__", "").Replace("`", "").Trim();
+
+        if (CheckMarkRegex.IsMatch(t))
+        {
+            t = CheckMarkRegex.Replace(t, " ").Trim();
+            if (!t.EndsWith("*")) t += " *";
+        }
+        else if (wasBold && ChoiceLetterRegex.IsMatch(t) && !t.EndsWith("*"))
+        {
+            t += " *";
+        }
+
+        return t;
+    }
 
     public QuizParseResult Parse(string rawText, string? title = null)
     {
@@ -156,14 +192,44 @@ public class QuizParserEngine : IQuizParserEngine
         return null;
     }
 
+    private static List<List<string>> SplitByBlankLines(string[] lines)
+    {
+        // For text with no "Q1:" / "1." numbering: each paragraph is one question,
+        // with the question on its first line and the answers beneath it.
+        var blocks = new List<List<string>>();
+        var current = new List<string>();
+        foreach (var raw in lines)
+        {
+            var line = NormalizeLine(raw);
+            if (line.Length == 0)
+            {
+                if (current.Count > 0) { blocks.Add(current); current = new List<string>(); }
+                continue;
+            }
+            if (blocks.Count == 0 && current.Count == 0 &&
+                (line.StartsWith("# ") || line.StartsWith("Title:", StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+            current.Add(line);
+        }
+        if (current.Count > 0) blocks.Add(current);
+        return blocks;
+    }
+
     private static List<List<string>> SplitIntoQuestionBlocks(string[] lines)
     {
+        if (!lines.Any(l => IsQuestionStart(NormalizeLine(l))))
+        {
+            return SplitByBlankLines(lines);
+        }
+
         var blocks = new List<List<string>>();
         List<string>? currentBlock = null;
 
         foreach (var rawLine in lines)
         {
-            var line = rawLine.Trim();
+            var line = NormalizeLine(rawLine);
             if (string.IsNullOrWhiteSpace(line))
             {
                 continue;
@@ -357,12 +423,21 @@ public class QuizParserEngine : IQuizParserEngine
         }
 
         // If explicit Answer keyword was specified (e.g. Answer: A or Answer: 2 or Answer: True)
+        // A true/false question written without listed options: "Q: The sky is blue. Answer: True"
+        if (choices.Count == 0 && !string.IsNullOrWhiteSpace(explicitAnswerStr) &&
+            (explicitAnswerStr.Trim().Equals("true", StringComparison.OrdinalIgnoreCase) ||
+             explicitAnswerStr.Trim().Equals("false", StringComparison.OrdinalIgnoreCase)))
+        {
+            choices.AddRange(new[] { "True", "False" });
+        }
+
         if (correctIndex == -1 && !string.IsNullOrWhiteSpace(explicitAnswerStr))
         {
-            var matchLetter = Regex.Match(explicitAnswerStr, @"^[A-Fa-f]$");
+            explicitAnswerStr = explicitAnswerStr.Trim().Trim('*', '.', ' ');
+            var matchLetter = Regex.Match(explicitAnswerStr, @"^\(?([A-Fa-f])\)?(?:[\.\)\:\-]\s*.*)?$");
             if (matchLetter.Success)
             {
-                int charIndex = char.ToUpper(matchLetter.Value[0]) - 'A';
+                int charIndex = char.ToUpper(matchLetter.Groups[1].Value[0]) - 'A';
                 if (charIndex >= 0 && charIndex < choices.Count)
                 {
                     correctIndex = charIndex;

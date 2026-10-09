@@ -332,16 +332,23 @@
           </div>
           <div class="spread mb-2">
             <h3>Questions <span class="muted num" id="qCount"></span></h3>
-            ${locked ? '' : `<button type="button" class="btn btn-secondary btn-sm" data-act="add-q">${UI.icon('plus')}Add question</button>`}
+            ${locked ? '' : `<div class="row-wrap">
+              <button type="button" class="btn btn-secondary btn-sm" data-act="toggle-paste" aria-expanded="false">${UI.icon('copy')}Paste questions</button>
+              <button type="button" class="btn btn-secondary btn-sm" data-act="add-q">${UI.icon('plus')}Add question</button>
+            </div>`}
           </div>
-          <div id="qList"></div>
           ${locked ? '' : `
-            <details class="format-guide mt-4">
-              <summary>Paste questions instead</summary>
-              <p class="muted mt-2" style="font-size: 0.875rem;">One question per block: <code>Q1: …</code>, answers as <code>A) …</code>, the correct one marked with <code>*</code>.</p>
-              <textarea class="textarea mono mt-2" id="pasteText" spellcheck="false" placeholder="Q1: Capital of France?&#10;A) Paris *&#10;B) Rome&#10;C) Madrid"></textarea>
-              <button type="button" class="btn btn-secondary btn-sm mt-2" data-act="import">Add these questions</button>
-            </details>`}
+            <div class="card card-sm mb-4" id="pastePanel" hidden>
+              <label class="label" for="pasteText">Paste your questions</label>
+              <p class="hint mb-2">From a document, a chat, or a spreadsheet. Mark the correct answer with a *, a ✓, bold text, or an "Answer: B" line. Questions can be numbered or just separated by blank lines.</p>
+              <textarea class="textarea mono" id="pasteText" spellcheck="false" style="min-height: 160px;" placeholder="1. What is the capital of France?&#10;A) London&#10;B) Paris *&#10;C) Madrid&#10;&#10;2. Water boils at 100°C.&#10;Answer: True"></textarea>
+              <div id="pasteResult" class="mt-3" aria-live="polite"></div>
+              <div class="row-wrap mt-3">
+                <button type="button" class="btn btn-primary btn-sm" data-act="import" disabled>Add questions</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-act="toggle-paste">Close</button>
+              </div>
+            </div>`}
+          <div id="qList"></div>
           <div class="dialog-actions">
             <button type="button" class="btn btn-secondary" data-act="cancel">Cancel</button>
             <button type="button" class="btn btn-primary" data-act="save">Save changes</button>
@@ -360,6 +367,7 @@
         const touch = () => { dirty = true; };
 
         el.querySelector('#editName').addEventListener('input', touch);
+        if (el.querySelector('#pasteText')) el.querySelector('#pasteText').addEventListener('input', touch);
         list.addEventListener('input', e => {
           const t = e.target, q = t.closest('[data-qi]') && qFor(t);
           if (!q) return;
@@ -383,25 +391,74 @@
           last.focus();
         };
 
-        async function importPasted() {
-          const text = el.querySelector('#pasteText').value;
-          if (!text.trim()) return UI.toast('Paste some questions first.', 'error');
-          try {
-            const r = await UI.busy(el.querySelector('[data-act="import"]'), () => UI.api('/api/quizzes/parse', { method: 'POST', body: { rawText: text, title: draft.title } }));
-            if (!r.success || !r.quiz.questions.length) {
-              return UI.toast((r.errors && r.errors[0]) || "Couldn't read any questions from that text.", 'error');
-            }
-            r.quiz.questions.forEach(q => draft.questions.push({
-              text: q.text, choices: q.choices, correctIndex: q.correctIndex ?? 0,
-              timeLimitSeconds: q.timeLimitSeconds || 20, points: q.points ?? 1000,
-            }));
-            el.querySelector('#pasteText').value = '';
-            touch();
-            render();
-            UI.toast(`Added ${r.quiz.questions.length} question${r.quiz.questions.length === 1 ? '' : 's'}`, 'success');
-          } catch (err) {
-            UI.toast(err.message, 'error');
+        // Paste: parse as you type, show what was understood, add on confirmation.
+        let parsed = [];
+        let parseTimer = null;
+        let parseSeq = 0;
+        const pasteBox = () => el.querySelector('#pasteText');
+        const resultBox = () => el.querySelector('#pasteResult');
+        const importBtn = () => el.querySelector('[data-act="import"]');
+
+        function togglePaste() {
+          const panel = el.querySelector('#pastePanel');
+          panel.hidden = !panel.hidden;
+          el.querySelector('[data-act="toggle-paste"]').setAttribute('aria-expanded', String(!panel.hidden));
+          if (!panel.hidden) { panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); pasteBox().focus(); }
+        }
+
+        async function parsePasted() {
+          const text = pasteBox().value;
+          const mine = ++parseSeq;
+          if (!text.trim()) {
+            parsed = [];
+            resultBox().innerHTML = '';
+            importBtn().disabled = true;
+            importBtn().textContent = 'Add questions';
+            return;
           }
+          let r;
+          try {
+            r = await UI.api('/api/quizzes/parse', { method: 'POST', body: { rawText: text, title: draft.title } });
+          } catch (err) {
+            if (mine === parseSeq) resultBox().innerHTML = `<div class="form-error">${UI.icon('alert')}<span>${UI.escape(err.message)}</span></div>`;
+            return;
+          }
+          if (mine !== parseSeq) return;
+          parsed = (r.quiz && r.quiz.questions) || [];
+          // A JSON import can include questions the server flagged as invalid, so keep only complete ones.
+          parsed = parsed.filter(q => q.text && q.choices && q.choices.length >= 2 && q.choices.length <= 6 && q.correctIndex >= 0 && q.correctIndex < q.choices.length);
+          const errors = r.errors || [];
+          const warnings = r.warnings || [];
+          resultBox().innerHTML = `
+            ${parsed.length ? `<p class="success-line" style="color: var(--success); font-weight: 600;">${UI.icon('check')} Found ${parsed.length} question${parsed.length === 1 ? '' : 's'}</p>
+              <ol class="paste-preview">${parsed.map(q => `<li><span>${UI.escape(q.text)}</span><span class="subtle">Answer: ${UI.escape(q.choices[q.correctIndex])}</span></li>`).join('')}</ol>` : ''}
+            ${errors.length ? `<div class="form-error mt-2">${UI.icon('alert')}<div><strong>${parsed.length ? 'Couldn\'t read these, so they will be skipped:' : 'Nothing could be read:'}</strong><ul style="margin-left: 18px;">${errors.map(e => `<li>${UI.escape(e)}</li>`).join('')}</ul></div></div>` : ''}
+            ${warnings.length && parsed.length ? `<p class="subtle mt-2">${warnings.map(UI.escape).join(' ')}</p>` : ''}`;
+          importBtn().disabled = parsed.length === 0;
+          importBtn().textContent = parsed.length ? `Add ${parsed.length} question${parsed.length === 1 ? '' : 's'}` : 'Add questions';
+        }
+
+        function importPasted() {
+          if (!parsed.length) return;
+          parsed.forEach(q => draft.questions.push({
+            text: q.text, choices: q.choices, correctIndex: q.correctIndex,
+            timeLimitSeconds: q.timeLimitSeconds || 20, points: q.points ?? 1000,
+          }));
+          const n = parsed.length;
+          parsed = [];
+          pasteBox().value = '';
+          resultBox().innerHTML = '';
+          importBtn().disabled = true;
+          el.querySelector('#pastePanel').hidden = true;
+          el.querySelector('[data-act="toggle-paste"]').setAttribute('aria-expanded', 'false');
+          touch();
+          render();
+          UI.toast(`Added ${n} question${n === 1 ? '' : 's'}`, 'success');
+          list.querySelector('.q-card:last-child').scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+
+        if (pasteBox()) {
+          pasteBox().addEventListener('input', () => { clearTimeout(parseTimer); parseTimer = setTimeout(parsePasted, 450); });
         }
 
         async function cancel() {
@@ -449,6 +506,7 @@
           if (act === 'save') return save();
           if (act === 'add-q') return addQuestion();
           if (act === 'import') return importPasted();
+          if (act === 'toggle-paste') return togglePaste();
           const card = b.closest('[data-qi]');
           if (!card) return;
           const i = Number(card.dataset.qi), q = draft.questions[i];

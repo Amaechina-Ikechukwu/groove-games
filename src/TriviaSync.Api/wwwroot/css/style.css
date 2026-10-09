@@ -618,3 +618,6 @@ button.answer:active { transform: scale(.98); }
 .rot-up { transform: rotate(90deg); }
 .rot-down { transform: rotate(-90deg); }
 code { font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; font-size: 0.875em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+
+.paste-preview { margin: 8px 0 0 22px; display: grid; gap: 6px; font-size: 0.9375rem; max-height: 220px; overflow-y: auto; }
+.paste-preview li span:first-child { display: block; font-weight: 600; }
