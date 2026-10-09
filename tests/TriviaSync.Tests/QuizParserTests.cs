@@ -127,4 +127,111 @@ A) Sole choice *
         Assert.False(result.Success);
         Assert.Contains(result.Errors, e => e.Contains("at least 2 choices"));
     }
+
+    [Fact]
+    public void Parse_ChatbotStyle_BoldNumbersAndCorrectAnswerLine()
+    {
+        var result = _parser.Parse("""
+**1. What is the capital of France?**
+A) London
+B) Paris
+C) Madrid
+Correct Answer: B
+
+**2. Which planet is largest?**
+A. Mars
+B. Jupiter
+C. Venus
+Answer: B) Jupiter
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+        Assert.Equal(2, result.Quiz.Questions.Count);
+        Assert.Equal("What is the capital of France?", result.Quiz.Questions[0].Text);
+        Assert.Equal(1, result.Quiz.Questions[0].CorrectIndex);
+        Assert.Equal(1, result.Quiz.Questions[1].CorrectIndex);
+    }
+
+    [Fact]
+    public void Parse_CheckMarkAndBoldChoicesMarkTheCorrectAnswer()
+    {
+        var result = _parser.Parse("""
+Q: Largest ocean?
+A) Atlantic
+B) Pacific ✓
+C) Indian
+
+Q: Smallest prime?
+A) 1
+**B) 2**
+C) 3
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+        Assert.Equal(1, result.Quiz.Questions[0].CorrectIndex);
+        Assert.Equal("Pacific", result.Quiz.Questions[0].Choices[1]);
+        Assert.Equal(1, result.Quiz.Questions[1].CorrectIndex);
+        Assert.Equal("2", result.Quiz.Questions[1].Choices[1]);
+    }
+
+    [Fact]
+    public void Parse_UnnumberedQuestionsSeparatedByBlankLines()
+    {
+        var result = _parser.Parse("""
+What is 2 + 2?
+A) 3
+B) 4 *
+C) 5
+
+Who wrote Hamlet?
+A) Shakespeare *
+B) Dickens
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+        Assert.Equal(2, result.Quiz.Questions.Count);
+        Assert.Equal("What is 2 + 2?", result.Quiz.Questions[0].Text);
+        Assert.Equal("Who wrote Hamlet?", result.Quiz.Questions[1].Text);
+        Assert.Equal(0, result.Quiz.Questions[1].CorrectIndex);
+    }
+
+    [Fact]
+    public void Parse_TrueFalseWithoutListedOptions()
+    {
+        var result = _parser.Parse("""
+Q: The sky is blue.
+Answer: True
+
+Q: Fish can fly.
+Answer: False
+""");
+
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+        Assert.Equal(new[] { "True", "False" }, result.Quiz.Questions[0].Choices);
+        Assert.Equal(0, result.Quiz.Questions[0].CorrectIndex);
+        Assert.Equal(1, result.Quiz.Questions[1].CorrectIndex);
+    }
+
+    [Fact]
+    public void Parse_OneBadQuestionStillReturnsTheGoodOnes()
+    {
+        var result = _parser.Parse("""
+Q1: Good question?
+A) Yes *
+B) No
+
+Q2: No answer marked?
+A) One
+B) Two
+
+Q3: Another good one?
+A) Right *
+B) Wrong
+""");
+
+        Assert.False(result.Success);
+        Assert.Equal(2, result.Quiz.Questions.Count);
+        Assert.Single(result.Errors);
+        Assert.Contains("Q2", result.Errors[0]);
+    }
 }
