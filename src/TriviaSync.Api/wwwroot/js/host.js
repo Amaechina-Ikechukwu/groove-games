@@ -108,6 +108,7 @@
     loadTournaments();
     loadQuizzes();
     loadRunning();
+    Live.subscribe('user');
   }
 
   async function loadQuizzes() {
@@ -756,7 +757,11 @@
 
     $('newTournament').onclick = newTournament;
     $('setupForm').addEventListener('submit', createGame);
-    $('refreshRunning').onclick = loadRunning;
+    // Live: tournaments (players joining, sessions opening) and running games update by themselves.
+    const onSetup = () => $('viewSetup').classList.contains('is-active');
+    Live.on('hosting', () => { if (onSetup()) loadTournaments(); });
+    Live.on('games', () => { if (onSetup()) loadRunning(); });
+    Live.onReconnect(() => { if (onSetup()) { loadTournaments(); loadRunning(); loadQuizzes(); } });
 
     $('hudPrimary').onclick = onPrimary;
     $('hudEnd').onclick = endCurrentGame;

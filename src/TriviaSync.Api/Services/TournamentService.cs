@@ -102,6 +102,7 @@ public class TournamentService : ITournamentService
     private readonly IServiceScopeFactory? _scopeFactory;
     private readonly ILogger<TournamentService>? _logger;
     private readonly bool _usePostgres;
+    private readonly ILiveNotifier? _live;
     private readonly object _lock = new();
 
     private readonly Dictionary<string, TournamentEntity> _tournaments = new();
@@ -114,10 +115,17 @@ public class TournamentService : ITournamentService
     {
     }
 
-    public TournamentService(IServiceScopeFactory scopeFactory, IConfiguration config, ILogger<TournamentService> logger)
+    /// <summary>Memory-only, publishing live updates to the given notifier (used by tests).</summary>
+    public TournamentService(ILiveNotifier live)
+    {
+        _live = live;
+    }
+
+    public TournamentService(IServiceScopeFactory scopeFactory, IConfiguration config, ILogger<TournamentService> logger, ILiveNotifier? live = null)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _live = live;
 
         var connString = config.GetConnectionString("DefaultConnection")
                          ?? Environment.GetEnvironmentVariable("POSTGRES_CONNECTION_STRING");
@@ -185,6 +193,69 @@ public class TournamentService : ITournamentService
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Live updates (call while holding _lock: they read the member list)
+    // -------------------------------------------------------------------------
+    private void Publish(string group, string kind) => _live?.Publish(group, kind);
+
+    private List<string> MemberEmails(string tournamentId) =>
+        _members.Keys.Where(k => k.Item1 == tournamentId).Select(k => k.Item2).ToList();
+
+    /// <summary>A tournament's sessions changed: its members, its host and admins refresh.</summary>
+    private void NotifySessions(TournamentEntity? t)
+    {
+        if (_live == null || t == null) return;
+        Publish(LiveTopics.Tournament(t.Id), "sessions");
+        foreach (var m in MemberEmails(t.Id)) Publish(LiveTopics.User(m), "joined");
+        Publish(LiveTopics.User(t.HostEmail), "hosting");
+        Publish(LiveTopics.Admin, "tournaments");
+    }
+
+    /// <summary>Scores changed: public standings, the host's result counts, and the player's own history.</summary>
+    private void NotifyStandings(TournamentEntity? t, string? userEmail)
+    {
+        if (_live == null || t == null) return;
+        Publish(LiveTopics.TournamentPublic(t.Id), "standings");
+        Publish(LiveTopics.TournamentManagers(t.Id), "attempts");
+        if (userEmail != null) Publish(LiveTopics.User(userEmail), "history");
+    }
+
+    private void NotifyMembers(TournamentEntity? t, string? userEmail)
+    {
+        if (_live == null || t == null) return;
+        Publish(LiveTopics.Tournament(t.Id), "members");
+        Publish(LiveTopics.User(t.HostEmail), "hosting");
+        Publish(LiveTopics.Admin, "tournaments");
+        if (userEmail != null) Publish(LiveTopics.User(userEmail), "joined");
+    }
+
+    /// <summary>A tournament was created or renamed.</summary>
+    private void NotifyListing(TournamentEntity t)
+    {
+        if (_live == null) return;
+        Publish(LiveTopics.Public, "tournaments");
+        Publish(LiveTopics.TournamentPublic(t.Id), "details");
+        Publish(LiveTopics.Tournament(t.Id), "details");
+        foreach (var m in MemberEmails(t.Id)) Publish(LiveTopics.User(m), "joined");
+        Publish(LiveTopics.User(t.HostEmail), "hosting");
+        Publish(LiveTopics.Admin, "tournaments");
+    }
+
+    private void NotifyDeleted(TournamentEntity? t, List<string> memberEmails)
+    {
+        if (_live == null || t == null) return;
+        Publish(LiveTopics.Tournament(t.Id), "deleted");
+        Publish(LiveTopics.TournamentPublic(t.Id), "deleted");
+        Publish(LiveTopics.Public, "tournaments");
+        foreach (var m in memberEmails)
+        {
+            Publish(LiveTopics.User(m), "joined");
+            Publish(LiveTopics.User(m), "history");
+        }
+        Publish(LiveTopics.User(t.HostEmail), "hosting");
+        Publish(LiveTopics.Admin, "tournaments");
+    }
+
     private void Persist(Action<TriviaDbContext> apply)
     {
         if (!_usePostgres)
@@ -218,6 +289,7 @@ public class TournamentService : ITournamentService
             };
             Persist(db => db.Tournaments.Add(t));
             _tournaments[t.Id] = t;
+            NotifyListing(t);
             return t;
         }
     }
@@ -286,6 +358,7 @@ public class TournamentService : ITournamentService
             t.Name = cleanName;
             t.Description = cleanDescription;
             Persist(db => db.Tournaments.Update(t));
+            NotifyListing(t);
             return t;
         }
     }
@@ -305,10 +378,13 @@ public class TournamentService : ITournamentService
                 db.Tournaments.RemoveRange(db.Tournaments.Where(t => t.Id == id));
             });
 
+            var doomed = _tournaments.GetValueOrDefault(id);
+            var doomedMembers = MemberEmails(id);
             foreach (var a in _attempts.Values.Where(a => a.TournamentId == id).ToList()) _attempts.Remove(a.Id);
             foreach (var s in _sessions.Values.Where(s => s.TournamentId == id).ToList()) _sessions.Remove(s.Id);
             foreach (var key in _members.Keys.Where(k => k.Item1 == id).ToList()) _members.Remove(key);
             _tournaments.Remove(id);
+            NotifyDeleted(doomed, doomedMembers);
         }
     }
 
@@ -344,6 +420,7 @@ public class TournamentService : ITournamentService
             var m = new TournamentMemberEntity { TournamentId = tournamentId, UserEmail = e, DisplayName = displayName, JoinedAt = DateTime.UtcNow };
             Persist(db => db.TournamentMembers.Add(m));
             _members[(tournamentId, e)] = m;
+            NotifyMembers(_tournaments.GetValueOrDefault(tournamentId), e);
         }
     }
 
@@ -357,6 +434,7 @@ public class TournamentService : ITournamentService
                 return false;
             Persist(db => db.TournamentMembers.Remove(m));
             _members.Remove((tournamentId, e));
+            NotifyMembers(_tournaments.GetValueOrDefault(tournamentId), e);
             return true;
         }
     }
@@ -401,6 +479,7 @@ public class TournamentService : ITournamentService
             };
             Persist(db => db.TournamentSessions.Add(s));
             _sessions[s.Id] = s;
+            NotifySessions(_tournaments.GetValueOrDefault(tournamentId));
             return s;
         }
     }
@@ -417,7 +496,11 @@ public class TournamentService : ITournamentService
                 db.TournamentSessions.RemoveRange(db.TournamentSessions.Where(s => s.Id == sessionId));
             });
             foreach (var a in _attempts.Values.Where(a => a.SessionId == sessionId).ToList()) _attempts.Remove(a.Id);
+            var gone = _sessions[sessionId];
             _sessions.Remove(sessionId);
+            var goneFrom = _tournaments.GetValueOrDefault(gone.TournamentId);
+            NotifySessions(goneFrom);
+            NotifyStandings(goneFrom, null);
         }
     }
 
@@ -442,6 +525,7 @@ public class TournamentService : ITournamentService
             s.Status = SessionStatuses.Open;
             s.ClosesAt = closesAt;
             Persist(db => db.TournamentSessions.Update(s));
+            NotifySessions(_tournaments.GetValueOrDefault(s.TournamentId));
             return s;
         }
     }
@@ -456,6 +540,7 @@ public class TournamentService : ITournamentService
             s.Status = SessionStatuses.Closed;
             s.ClosedAt = DateTime.UtcNow;
             Persist(db => db.TournamentSessions.Update(s));
+            NotifySessions(_tournaments.GetValueOrDefault(s.TournamentId));
             return s;
         }
     }
@@ -470,6 +555,7 @@ public class TournamentService : ITournamentService
             s.OpenedAt = DateTime.UtcNow;
             s.ClosedAt = null;
             Persist(db => db.TournamentSessions.Update(s));
+            NotifySessions(_tournaments.GetValueOrDefault(s.TournamentId));
         }
     }
 
@@ -491,6 +577,8 @@ public class TournamentService : ITournamentService
             s.ClosedAt = finished ? DateTime.UtcNow : null;
             if (!finished) s.OpenedAt = null;
             Persist(db => db.TournamentSessions.Update(s));
+            var tourn = _tournaments.GetValueOrDefault(s.TournamentId);
+            NotifySessions(tourn);
 
             if (!finished)
                 return;
@@ -499,6 +587,7 @@ public class TournamentService : ITournamentService
             foreach (var r in results.Where(r => !string.IsNullOrWhiteSpace(r.Email)))
             {
                 var email = Normalize(r.Email);
+                NotifyStandings(tourn, email);
                 var existing = _attempts.Values.FirstOrDefault(a => a.SessionId == sessionId && a.UserEmail == email);
                 var attempt = existing ?? new SessionAttemptEntity
                 {
@@ -580,6 +669,7 @@ public class TournamentService : ITournamentService
 
             s.Title = cleanTitle;
             Persist(db => db.TournamentSessions.Update(s));
+            NotifySessions(_tournaments.GetValueOrDefault(s.TournamentId));
             return s;
         }
     }
@@ -777,7 +867,11 @@ public class TournamentService : ITournamentService
         return new AnswerResult(correct, timedOut, question.CorrectIndex, points);
     }
 
-    private void SaveAttempt(SessionAttemptEntity attempt) => Persist(db => db.SessionAttempts.Update(attempt));
+    private void SaveAttempt(SessionAttemptEntity attempt)
+    {
+        Persist(db => db.SessionAttempts.Update(attempt));
+        NotifyStandings(_tournaments.GetValueOrDefault(attempt.TournamentId), attempt.UserEmail);
+    }
 
     private PlayState BuildState(TournamentSessionEntity s, Quiz quiz, SessionAttemptEntity attempt)
     {

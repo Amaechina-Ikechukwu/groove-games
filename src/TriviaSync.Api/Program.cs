@@ -138,6 +138,7 @@ builder.Services.AddDbContext<TriviaDbContext>(options =>
 builder.Services.AddSingleton<IQuizParserEngine, QuizParserEngine>();
 builder.Services.AddSingleton<ITriviaDataService, PostgresDataService>();
 builder.Services.AddSingleton<IExportService, ExportService>();
+builder.Services.AddSingleton<ILiveNotifier, LiveNotifier>();
 builder.Services.AddSingleton<IUserStore, UserStore>();
 builder.Services.AddSingleton<ITournamentService, TournamentService>();
 builder.Services.AddSingleton<AuthService>();

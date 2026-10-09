@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Standings · Groove</title>
-  <link rel="stylesheet" href="/css/style.css?v=4.9">
+  <link rel="stylesheet" href="/css/style.css?v=4.11">
   <style>
     .panel { display: none; }
     .panel.is-active { display: block; animation: fade-in .15s ease-out; }
@@ -39,17 +39,17 @@
       <div class="spread mb-6">
         <div>
           <h1>Standings</h1>
-          <p class="muted mt-1">Public tournament standings and all-time scores. They update automatically.</p>
+          <p class="muted mt-1">Each tournament has its own standings. Quick games have a separate board. Both update automatically.</p>
         </div>
         <div class="row-wrap" id="exportButtons" hidden>
-          <button type="button" class="btn btn-secondary btn-sm" id="exportCsv"><span data-icon="download"></span>All-time CSV</button>
-          <button type="button" class="btn btn-secondary btn-sm" id="exportExcel"><span data-icon="download"></span>All-time Excel</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="exportCsv"><span data-icon="download"></span>Quick games CSV</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="exportExcel"><span data-icon="download"></span>Quick games Excel</button>
         </div>
       </div>
 
       <div class="tabs" role="tablist">
         <button class="tab" role="tab" data-tab="panelTournament" aria-selected="true">Tournaments</button>
-        <button class="tab" role="tab" data-tab="panelAllTime">All time</button>
+        <button class="tab" role="tab" data-tab="panelAllTime">Quick games</button>
       </div>
 
       <!-- Tournament -->
@@ -93,7 +93,9 @@
     <a href="/leaderboard.html" aria-current="page"><span data-icon="trophy"></span>Standings</a>
   </nav>
 
-  <script src="/js/ui.js?v=4.9"></script>
+  <script src="/js/ui.js?v=4.11"></script>
+  <script src="/js/lib/signalr.min.js"></script>
+  <script src="/js/live.js?v=4.11"></script>
   <script>
   (function () {
     const $ = id => document.getElementById(id);
@@ -124,7 +126,7 @@
     }
 
     // Tournaments (public) ---------------------------------------------------
-    async function loadTournaments() {
+    async function loadTournaments(quiet) {
       const select = $('tournamentSelect');
       try {
         const list = await UI.api('/api/tournaments/public', { auth: false });
@@ -137,14 +139,24 @@
           `<option value="${UI.escape(t.id)}">${UI.escape(t.name)} · ${UI.escape(t.hostName)}</option>`).join('');
         if (!tournamentId || !list.some(t => t.id === tournamentId)) tournamentId = list[0].id;
         select.value = tournamentId;
-        loadTournament();
+        loadTournament(quiet);
       } catch (err) {
         select.innerHTML = `<option value="">${UI.escape(err.message)}</option>`;
       }
     }
 
+    let followed = null;
+    /** Live updates for whichever tournament is selected. */
+    function followTournament(id) {
+      if (followed === id) return;
+      if (followed) Live.unsubscribe(`tournament:${followed}:pub`);
+      followed = id;
+      if (id) Live.subscribe(`tournament:${id}:pub`);
+    }
+
     async function loadTournament(quiet) {
       if (!tournamentId) return;
+      followTournament(tournamentId);
       const body = $('tournamentBody');
       if (!quiet) body.innerHTML = '<p class="muted">Loading…</p>';
       try {
@@ -227,11 +239,14 @@
     $('exportCsv').onclick = e => exportAll('csv', e.currentTarget);
     $('exportExcel').onclick = e => exportAll('excel', e.currentTarget);
 
-    setInterval(() => {
-      if (document.hidden) return;
-      if (activeTab === 'panelTournament') loadTournament(true);
-      else if (!$('search').value) loadAllTime();
-    }, 15000);
+    // Live: scores, new tournaments and quick-game results appear as they happen.
+    Live.subscribe('public');
+    Live.on('standings', () => loadTournament(true));
+    Live.on('details', () => loadTournaments(true));
+    Live.on('tournaments', () => loadTournaments(true));
+    Live.on('deleted', () => loadTournaments(true));
+    Live.on('quick', () => { if (!$('search').value) loadAllTime(); });
+    Live.onReconnect(() => { loadTournaments(true); loadAllTime(); });
 
     Session.onChange(() => { renderChrome(); loadTournament(true); });
     renderChrome();

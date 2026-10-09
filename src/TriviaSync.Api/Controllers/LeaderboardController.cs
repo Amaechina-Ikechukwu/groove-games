@@ -13,13 +13,16 @@ public class LeaderboardController : ControllerBase
     private readonly IExportService _exportService;
     private readonly IGameEngineService _gameEngine;
     private readonly ILogger<LeaderboardController> _logger;
+    private readonly ILiveNotifier? _live;
 
     public LeaderboardController(
         ITriviaDataService dataService,
         IExportService exportService,
         IGameEngineService gameEngine,
-        ILogger<LeaderboardController> logger)
+        ILogger<LeaderboardController> logger,
+        ILiveNotifier? live = null)
     {
+        _live = live;
         _dataService = dataService;
         _exportService = exportService;
         _gameEngine = gameEngine;
@@ -157,6 +160,8 @@ public class LeaderboardController : ControllerBase
         [FromQuery] string? hostId = null)
     {
         await _dataService.ResetLeaderboardAsync(organizationId, hostId);
+        _live?.Publish(LiveTopics.Public, "quick");
+        _live?.Publish(LiveTopics.Admin, "leaderboard");
         return Ok(new { message = "Leaderboard reset successfully." });
     }
 

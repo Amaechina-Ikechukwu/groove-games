@@ -58,9 +58,11 @@ public class AuthService : IAuthService
     private readonly string _issuer;
     private readonly string _audience;
     private readonly object _roleLock = new();
+    private readonly ILiveNotifier? _live;
 
-    public AuthService(IConfiguration config, IUserStore users, JwtSigningKey signingKey)
+    public AuthService(IConfiguration config, IUserStore users, JwtSigningKey signingKey, ILiveNotifier? live = null)
     {
+        _live = live;
         _users = users;
         _signingKey = signingKey.Key;
         _issuer = config["Jwt:Issuer"] ?? "Groove";
@@ -96,6 +98,7 @@ public class AuthService : IAuthService
         if (!_users.TryAdd(user))
             throw new InvalidOperationException("An account with this email already exists. Sign in instead.");
 
+        _live?.Publish(LiveTopics.Admin, "people");
         return BuildResponse(user);
     }
 
@@ -120,6 +123,7 @@ public class AuthService : IAuthService
             var updated = Copy(user);
             updated.Role = Roles.Host;
             _users.Update(updated);
+            _live?.Publish(LiveTopics.Admin, "people");
             return BuildResponse(updated);
         }
     }
@@ -157,6 +161,7 @@ public class AuthService : IAuthService
             var updated = Copy(user);
             updated.Role = canonical;
             _users.Update(updated);
+            _live?.Publish(LiveTopics.Admin, "people");
             return RoleChangeResult.Ok;
         }
     }

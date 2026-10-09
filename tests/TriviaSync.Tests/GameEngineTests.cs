@@ -110,4 +110,25 @@ public class GameEngineTests
         Assert.True(player2.IsConnected);
         Assert.Equal(1, session.ConnectedPlayerCount);
     }
+
+    [Fact]
+    public async Task FinishGame_QuickGameFeedsTheSharedLeaderboard_ButTournamentGameDoesNot()
+    {
+        var quiz = new Quiz
+        {
+            Title = "Q",
+            Questions = new List<Question> { new() { Text = "?", Choices = new() { "a", "b" }, CorrectIndex = 0 } }
+        };
+
+        var quick = _engine.CreateSession(quiz, "host@test.live");
+        _engine.JoinOrReconnectPlayer(quick.Pin, "conn1", "Quick Quinn", "");
+        await _engine.FinishGameAsync(quick);
+
+        var tournament = _engine.CreateSession(quiz, "host@test.live", tournamentSessionId: "ses_1");
+        _engine.JoinOrReconnectPlayer(tournament.Pin, "conn2", "Tourney Tess", "tess@test.live");
+        await _engine.FinishGameAsync(tournament);
+
+        _mockDataService.Verify(d => d.UpdatePlayerStatsAsync("Quick Quinn", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+        _mockDataService.Verify(d => d.UpdatePlayerStatsAsync("Tourney Tess", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>()), Times.Never);
+    }
 }

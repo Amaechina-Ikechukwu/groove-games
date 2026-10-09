@@ -107,4 +107,6 @@ The tests cover the parser, scoring, reconnects, persistence, and auth/RBAC rule
    - **Self-paced**: the host opens it until a deadline (like Kahoot's assign mode). Members play on their own time with one attempt each. The server times every question, so refreshing doesn't reset the clock.
 4. Scores from every session add up in the tournament standings. **Standings are public** at `/tournament.html?id=…` and on `/leaderboard.html`. Player emails are only shown to the tournament's host and admins.
 
-**Quick games** are one-off live games with no tournament. Anyone with the PIN can play without an account, and scores go to the all-time leaderboard.
+**Everything is live.** Sessions opening or closing, players joining, scores changing, new tournaments and running games all appear on every open page without a refresh. The server sends a small "this changed" message over SignalR to just the people allowed to see it, and the page re-fetches that part. Pages reconnect by themselves after a dropped connection or a server restart.
+
+**Quick games** are one-off live games with no tournament. Anyone with the PIN can play without an account, and scores go on the separate Quick games leaderboard. Tournament scores are kept per tournament and never added into it.

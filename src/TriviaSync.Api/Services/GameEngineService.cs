@@ -11,6 +11,7 @@ public class GameEngineService : IGameEngineService
     private readonly ITriviaDataService _dataService;
     private readonly ILogger<GameEngineService> _logger;
     private readonly ITournamentService? _tournaments;
+    private readonly ILiveNotifier? _live;
 
     // Active sessions: Pin -> GameSession
     private readonly ConcurrentDictionary<string, GameSession> _sessions = new();
@@ -27,8 +28,10 @@ public class GameEngineService : IGameEngineService
         IHubContext<QuizHub, IQuizClient> hubContext,
         ITriviaDataService dataService,
         ILogger<GameEngineService> logger,
-        ITournamentService? tournaments = null)
+        ITournamentService? tournaments = null,
+        ILiveNotifier? live = null)
     {
+        _live = live;
         _hubContext = hubContext;
         _dataService = dataService;
         _logger = logger;
@@ -68,6 +71,7 @@ public class GameEngineService : IGameEngineService
         };
 
         _sessions[pin] = session;
+        NotifyGames(session);
         _logger.LogInformation("Created game session PIN: {Pin} for Quiz: {QuizTitle} (Host: {HostId}, Tournament: {TournamentId})", 
             pin, quiz.Title, session.HostId, session.TournamentId);
         return session;
@@ -86,6 +90,14 @@ public class GameEngineService : IGameEngineService
             }
         }
         return Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+    }
+
+    /// <summary>The running-games list changed: refresh the host's and admins' views.</summary>
+    private void NotifyGames(GameSession session)
+    {
+        if (_live == null) return;
+        _live.Publish(LiveTopics.User(session.HostId), "games");
+        _live.Publish(LiveTopics.Admin, "games");
     }
 
     public GameSession? GetSession(string pin)
@@ -125,6 +137,7 @@ public class GameEngineService : IGameEngineService
         var removed = _sessions.TryRemove(pin, out var session);
         if (removed && session != null)
         {
+            NotifyGames(session);
             foreach (var player in session.Players.Values)
             {
                 _connectionMap.TryRemove(player.ConnectionId, out _);
@@ -175,6 +188,7 @@ public class GameEngineService : IGameEngineService
 
             _connectionMap[connectionId] = (pin, playerId);
             _logger.LogInformation("Player reconnected: {FullName} ({PlayerId}) in room {Pin}", fullName, playerId, pin);
+            NotifyGames(session);
             return (true, "Reconnected successfully.", existingPlayer);
         }
 
@@ -200,6 +214,7 @@ public class GameEngineService : IGameEngineService
         {
             _connectionMap[connectionId] = (pin, playerId);
             _logger.LogInformation("Player joined: {FullName} in room {Pin} under Host {HostId}", fullName, pin, session.HostId);
+            NotifyGames(session);
             return (true, "Joined room successfully.", newPlayer);
         }
 
@@ -216,6 +231,7 @@ public class GameEngineService : IGameEngineService
                 {
                     player.IsConnected = false;
                     player.LastActive = DateTime.UtcNow;
+                    NotifyGames(session);
                     return (info.Pin, player);
                 }
             }
@@ -269,6 +285,7 @@ public class GameEngineService : IGameEngineService
 
         // 1. Brief countdown stage (3 seconds) to allow participants to get ready
         session.State = GameState.QuestionCountdown;
+        NotifyGames(session);
         await _hubContext.Clients.Group(pin).QuestionCountdown(new
         {
             countdownSeconds = 3,
@@ -485,6 +502,7 @@ public class GameEngineService : IGameEngineService
     public async Task CompleteRoundAsync(GameSession session, Question question)
     {
         session.State = GameState.AnswerReveal;
+        NotifyGames(session);
 
         // Tally answers
         int choiceCount = question.Choices.Count;
@@ -557,6 +575,7 @@ public class GameEngineService : IGameEngineService
         if (_sessions.ContainsKey(session.Pin) && session.State == GameState.AnswerReveal)
         {
             session.State = GameState.RoundLeaderboard;
+            NotifyGames(session);
             var topPlayers = session.Players.Values
                 .OrderByDescending(p => p.Score)
                 .ThenBy(p => p.JoinedAt)
@@ -610,6 +629,12 @@ public class GameEngineService : IGameEngineService
     public async Task FinishGameAsync(GameSession session)
     {
         session.State = GameState.GameEnded;
+        NotifyGames(session);
+        if (string.IsNullOrEmpty(session.TournamentSessionId))
+        {
+            _live?.Publish(LiveTopics.Public, "quick");
+            _live?.Publish(LiveTopics.Admin, "leaderboard");
+        }
         UpdateRankings(session);
 
         var topPlayers = session.Players.Values
@@ -648,15 +673,20 @@ public class GameEngineService : IGameEngineService
             int correctCount = session.RoundHistory
                 .Count(r => session.AuditLogs.Any(a => a.PlayerId == player.PlayerId && a.QuestionIndex == r.QuestionIndex && a.PointsEarned > 0));
 
-            _ = _dataService.UpdatePlayerStatsAsync(
-                player.FullName,
-                player.OrganizationId,
-                player.Score,
-                correctCount,
-                player.HighestStreak,
-                player.Identifier,
-                session.HostId,
-                session.RoundHistory.Count);
+            // Tournament scores belong to their tournament (recorded by EndLive below), not to a
+            // leaderboard that adds up every game a player has ever played.
+            if (string.IsNullOrEmpty(session.TournamentSessionId))
+            {
+                _ = _dataService.UpdatePlayerStatsAsync(
+                    player.FullName,
+                    player.OrganizationId,
+                    player.Score,
+                    correctCount,
+                    player.HighestStreak,
+                    player.Identifier,
+                    session.HostId,
+                    session.RoundHistory.Count);
+            }
         }
 
         if (!string.IsNullOrEmpty(session.TournamentSessionId) && _tournaments != null)
@@ -676,6 +706,7 @@ public class GameEngineService : IGameEngineService
             if (session.Players.TryRemove(playerId, out var player))
             {
                 _connectionMap.TryRemove(player.ConnectionId, out _);
+                NotifyGames(session);
                 return (true, player.ConnectionId);
             }
         }

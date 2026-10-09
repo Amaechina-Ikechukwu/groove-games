@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My tournaments · Groove</title>
-  <link rel="stylesheet" href="/css/style.css?v=4.9">
+  <link rel="stylesheet" href="/css/style.css?v=4.11">
   <style>
     .view { display: none; }
     .view.is-active { display: block; animation: fade-in .15s ease-out; }
@@ -95,7 +95,9 @@
     <a href="/leaderboard.html"><span data-icon="trophy"></span>Standings</a>
   </nav>
 
-  <script src="/js/ui.js?v=4.9"></script>
+  <script src="/js/ui.js?v=4.11"></script>
+  <script src="/js/lib/signalr.min.js"></script>
+  <script src="/js/live.js?v=4.11"></script>
   <script>
   (function () {
     const $ = id => document.getElementById(id);
@@ -115,6 +117,7 @@
       if (pendingCode && !$('joinCode').value) $('joinCode').value = pendingCode;
       loadJoined();
       loadHistory();
+      Live.subscribe('user');
     }
 
     async function loadJoined() {
@@ -186,6 +189,11 @@
     $('joinForm').addEventListener('submit', join);
     $('gateSignIn').onclick = () => UI.signIn({ title: 'Sign in', description: pendingCode ? `Sign in to join tournament ${pendingCode}.` : '' });
     $('gateSignUp').onclick = () => UI.signIn({ title: 'Create an account', startWith: 'signup', description: pendingCode ? `Then you'll join tournament ${pendingCode}.` : '' });
+
+    // Live: a tournament I'm in opens a session, I'm removed, scores change...
+    Live.on('joined', () => { if (Session.get()) loadJoined(); });
+    Live.on('history', () => { if (Session.get()) loadHistory(); });
+    Live.onReconnect(() => { if (Session.get()) { loadJoined(); loadHistory(); } });
 
     Session.onChange(route);
     route();

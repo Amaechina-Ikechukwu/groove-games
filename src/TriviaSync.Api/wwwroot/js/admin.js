@@ -38,6 +38,7 @@ Time: 10s`;
       return showView('viewDenied');
     }
     showView('viewAdmin');
+    Live.subscribe('admin');
     loadQuizzes();
     loadTournaments();
     loadGames();
@@ -440,7 +441,7 @@ Time: 10s`;
   async function resetLeaderboard() {
     const ok = await UI.confirm({
       title: 'Reset all scores?',
-      message: 'Every player\'s all-time points, games played and streaks will be permanently erased. Exports you\'ve downloaded aren\'t affected. This can\'t be undone.',
+      message: 'Every player\'s quick-game points, games played and streaks will be permanently erased. Tournament standings aren\'t affected, and neither are exports you\'ve downloaded. This can\'t be undone.',
       confirmText: 'Reset all scores',
       danger: true,
       requireText: 'reset',
@@ -563,7 +564,17 @@ Time: 10s`;
     $('exportCsv').onclick = e => exportLeaderboard('csv', e.currentTarget);
     $('exportExcel').onclick = e => exportLeaderboard('excel', e.currentTarget);
     $('peopleSearch').addEventListener('input', renderPeople);
-    $('refreshGames').onclick = loadGames;
+    // Live: whatever happens anywhere on the platform shows up here without a refresh.
+    const admin = () => Session.isAdmin();
+    Live.on('tournaments', () => { if (admin()) loadTournaments(); });
+    Live.on('games', () => { if (admin()) loadGames(); });
+    Live.on('people', () => { if (admin()) loadPeople(); });
+    Live.on('quizzes', () => { if (admin()) loadQuizzes(); });
+    Live.on('leaderboard', () => { if (admin()) loadLeaderboard(); });
+    Live.onReconnect(() => {
+      if (!admin()) return;
+      loadQuizzes(); loadTournaments(); loadGames(); loadPeople(); loadLeaderboard();
+    });
 
     document.querySelectorAll('[data-guard-nav]').forEach(a => {
       a.addEventListener('click', async e => {
