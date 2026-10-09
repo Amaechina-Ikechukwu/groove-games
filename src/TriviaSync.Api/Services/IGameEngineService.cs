@@ -12,7 +12,8 @@ public interface IGameEngineService
         string tournamentName = "", 
         int sessionNumber = 1, 
         int totalSessions = 1, 
-        string sessionType = "Single");
+        string sessionType = "Single",
+        string tournamentSessionId = "");
 
     GameSession? GetSession(string pin);
     List<GameSession> GetAllActiveSessions();
@@ -27,6 +28,7 @@ public interface IGameEngineService
     Task<bool> StartQuizAsync(string pin);
     (bool Success, string Message, AnswerSubmission? Submission) SubmitAnswer(string pin, string connectionId, int questionIndex, int choiceIndex);
     Task<bool> AdvanceQuestionAsync(string pin);
+    bool EndQuestionEarly(string pin);
     (bool Success, string? ConnectionId) KickPlayer(string pin, string playerId);
 
     int CalculatePoints(int basePoints, double elapsedSeconds, double timeLimitSeconds);

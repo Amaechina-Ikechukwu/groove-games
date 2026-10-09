@@ -10,6 +10,7 @@ public class GameEngineService : IGameEngineService
     private readonly IHubContext<QuizHub, IQuizClient> _hubContext;
     private readonly ITriviaDataService _dataService;
     private readonly ILogger<GameEngineService> _logger;
+    private readonly ITournamentService? _tournaments;
 
     // Active sessions: Pin -> GameSession
     private readonly ConcurrentDictionary<string, GameSession> _sessions = new();
@@ -25,11 +26,13 @@ public class GameEngineService : IGameEngineService
     public GameEngineService(
         IHubContext<QuizHub, IQuizClient> hubContext,
         ITriviaDataService dataService,
-        ILogger<GameEngineService> logger)
+        ILogger<GameEngineService> logger,
+        ITournamentService? tournaments = null)
     {
         _hubContext = hubContext;
         _dataService = dataService;
         _logger = logger;
+        _tournaments = tournaments;
     }
 
     public GameSession CreateSession(
@@ -40,7 +43,8 @@ public class GameEngineService : IGameEngineService
         string tournamentName = "", 
         int sessionNumber = 1, 
         int totalSessions = 1, 
-        string sessionType = "Single")
+        string sessionType = "Single",
+        string tournamentSessionId = "")
     {
         var pin = GenerateUniquePin();
         var session = new GameSession
@@ -54,6 +58,7 @@ public class GameEngineService : IGameEngineService
             SessionNumber = sessionNumber,
             TotalSessions = totalSessions,
             SessionType = sessionType,
+            TournamentSessionId = tournamentSessionId ?? string.Empty,
             Quiz = quiz,
             AutoAdvance = autoAdvance,
             State = GameState.Lobby
@@ -300,6 +305,25 @@ public class GameEngineService : IGameEngineService
         return true;
     }
 
+    /// <summary>Stops the running question timer and reveals the answer immediately.</summary>
+    public bool EndQuestionEarly(string pin)
+    {
+        if (!_sessions.TryGetValue(pin, out var session) || session.State != GameState.QuestionActive)
+        {
+            return false;
+        }
+
+        if (_timerCts.TryRemove(pin, out var cts))
+        {
+            cts.Cancel();
+            cts.Dispose();
+        }
+
+        var question = session.Quiz.Questions[session.CurrentQuestionIndex];
+        _ = CompleteRoundAsync(session, question);
+        return true;
+    }
+
     private async Task RunQuestionTimerAsync(GameSession session, Question question, CancellationToken token)
     {
         var pin = session.Pin;
@@ -451,15 +475,8 @@ public class GameEngineService : IGameEngineService
         return (true, "Answer submitted.", submission);
     }
 
-    public int CalculatePoints(int basePoints, double elapsedSeconds, double timeLimitSeconds)
-    {
-        // Formula: Points = BasePoints * (1 - (Elapsed / TimeLimit) * 0.5)
-        if (timeLimitSeconds <= 0) timeLimitSeconds = 20;
-        double ratio = Math.Clamp(elapsedSeconds / timeLimitSeconds, 0.0, 1.0);
-        double multiplier = 1.0 - (ratio * 0.5);
-        int points = (int)Math.Round(basePoints * multiplier);
-        return Math.Max(0, points);
-    }
+    public int CalculatePoints(int basePoints, double elapsedSeconds, double timeLimitSeconds) =>
+        Scoring.CalculatePoints(basePoints, elapsedSeconds, timeLimitSeconds);
 
     public async Task CompleteRoundAsync(GameSession session, Question question)
     {
@@ -632,7 +649,15 @@ public class GameEngineService : IGameEngineService
                 correctCount,
                 player.HighestStreak,
                 player.Identifier,
-                session.HostId);
+                session.HostId,
+                session.RoundHistory.Count);
+        }
+
+        if (!string.IsNullOrEmpty(session.TournamentSessionId) && _tournaments != null)
+        {
+            // Tournament games only admit signed-in players, whose identifier is their account email.
+            _tournaments.EndLive(session.TournamentSessionId, finished: true, session.Players.Values
+                .Select(p => new LivePlayerResult(p.Identifier, p.FullName, p.Score, p.CorrectAnswers, p.TotalAnswers)));
         }
 
         _logger.LogInformation("Game concluded for PIN: {Pin}. Total players: {Count}", session.Pin, session.Players.Count);

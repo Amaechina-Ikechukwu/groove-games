@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -19,7 +20,6 @@ public class AuthAndTournamentTests
     {
         var settings = new Dictionary<string, string?>
         {
-            { "Jwt:Key", "GrooveSuperSecretSigningKeyForDevelopmentAndTesting2026!" },
             { "Jwt:Issuer", "Groove" },
             { "Jwt:Audience", "GrooveClients" }
         };
@@ -28,136 +28,183 @@ public class AuthAndTournamentTests
             .AddInMemoryCollection(settings)
             .Build();
 
-        _authService = new AuthService(_config);
+        _authService = new AuthService(_config, new UserStore(), new JwtSigningKey("TestOnlySigningKey-AtLeast32Bytes-Long!!"));
+        _authService.EnsureAccount("admin@groove.live", "admin-password", "Admin", Roles.Admin);
     }
+
+    private static RegisterRequest NewRegistration(string role = "Player", string password = "strongPassword123") => new()
+    {
+        Email = $"user_{Guid.NewGuid():N}@test.live",
+        Password = password,
+        FullName = "Contender Neo",
+        Role = role
+    };
 
     [Fact]
     public void AdminLogin_ReturnsSignedJwtWithAdminRoleClaim()
     {
-        var auth = _authService.Login("admin@groove.live", "admin123");
+        var auth = _authService.Login("admin@groove.live", "admin-password");
 
-        Assert.NotNull(auth);
         Assert.Equal("admin@groove.live", auth.Email);
         Assert.Equal("Admin", auth.Role);
-        Assert.False(string.IsNullOrWhiteSpace(auth.Token));
 
-        // Validate JWT token contents
-        var handler = new JwtSecurityTokenHandler();
-        var token = handler.ReadJwtToken(auth.Token);
-
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(auth.Token);
         Assert.Equal("Groove", token.Issuer);
-        var roleClaim = token.Claims.FirstOrDefault(c => c.Type == "role" || c.Type == System.Security.Claims.ClaimTypes.Role);
+        var roleClaim = token.Claims.FirstOrDefault(c => c.Type == "role" || c.Type == ClaimTypes.Role);
         Assert.NotNull(roleClaim);
         Assert.Equal("Admin", roleClaim.Value);
     }
 
     [Fact]
-    public void Register_CreatesPlayerAccountAndGeneratesToken()
+    public void Register_CreatesPlayerAccountThatCanSignIn()
     {
-        var email = $"player_{Guid.NewGuid():N}@test.live";
-        var reg = new RegisterRequest
-        {
-            Email = email,
-            Password = "strongPassword123",
-            FullName = "Contender Neo",
-            Role = "Player"
-        };
-
+        var reg = NewRegistration();
         var response = _authService.Register(reg);
 
-        Assert.NotNull(response);
-        Assert.Equal(email, response.Email);
+        Assert.Equal(reg.Email, response.Email);
         Assert.Equal("Contender Neo", response.DisplayName);
         Assert.Equal("Player", response.Role);
-        Assert.False(string.IsNullOrWhiteSpace(response.Token));
 
-        // Verify can log in immediately after registration
-        var login = _authService.Login(email, "strongPassword123");
-        Assert.Equal(email, login.Email);
+        var login = _authService.Login(reg.Email, reg.Password);
         Assert.Equal("Player", login.Role);
     }
 
     [Fact]
-    public void Register_DuplicateEmail_ThrowsException()
+    public void Register_StoresHashedPasswordNotPlaintext()
     {
-        var email = "admin@groove.live";
-        var reg = new RegisterRequest
-        {
-            Email = email,
-            Password = "password",
-            FullName = "Imposter Admin"
-        };
+        var reg = NewRegistration();
+        _authService.Register(reg);
 
+        var stored = _authService.FindUser(reg.Email)!;
+        Assert.DoesNotContain(reg.Password, stored.PasswordHash);
+        Assert.StartsWith("pbkdf2$", stored.PasswordHash);
+    }
+
+    [Fact]
+    public void Register_DuplicateEmail_Throws()
+    {
+        var reg = NewRegistration();
+        reg.Email = "ADMIN@groove.live";
         Assert.Throws<InvalidOperationException>(() => _authService.Register(reg));
     }
 
-    [Fact]
-    public void HostLogin_NewUser_CreatesHostAccount()
+    [Theory]
+    [InlineData("Admin")]
+    [InlineData("SuperAdmin")]
+    [InlineData("Owner")]
+    public void Register_CannotSelfAssignPrivilegedOrUnknownRole(string role)
     {
-        var email = $"newhost_{Guid.NewGuid():N}@gmail.com";
-        var auth = _authService.Login(email, "mypassword123", portal: "Host", requestedRole: "Host");
-
-        Assert.NotNull(auth);
-        Assert.Equal(email, auth.Email);
-        Assert.Equal("Host", auth.Role);
-        Assert.False(string.IsNullOrWhiteSpace(auth.Token));
+        Assert.Throws<ArgumentException>(() => _authService.Register(NewRegistration(role)));
     }
 
     [Fact]
-    public void HostLogin_ExistingPlayer_UpgradesToHost()
+    public void Register_ShortPassword_Throws()
     {
-        var email = $"player_to_host_{Guid.NewGuid():N}@gmail.com";
-        // User registers or fast-logs in as player
-        var reg = _authService.Register(new RegisterRequest
-        {
-            Email = email,
-            Password = "mypassword123",
-            FullName = "Promoted Host",
-            Role = "Player"
-        });
-        Assert.Equal("Player", reg.Role);
+        Assert.Throws<ArgumentException>(() => _authService.Register(NewRegistration(password: "short")));
+    }
 
-        // Later logs in on Host portal
-        var hostLogin = _authService.Login(email, "mypassword123", portal: "Host", requestedRole: "Host");
-        Assert.Equal("Host", hostLogin.Role);
+    [Fact]
+    public void Register_InvalidEmail_Throws()
+    {
+        var reg = NewRegistration();
+        reg.Email = "not-an-email";
+        Assert.Throws<ArgumentException>(() => _authService.Register(reg));
     }
 
     [Fact]
     public void Register_HostRole_CreatesHostAccount()
     {
-        var email = $"registered_host_{Guid.NewGuid():N}@gmail.com";
-        var reg = _authService.Register(new RegisterRequest
-        {
-            Email = email,
-            Password = "mypassword123",
-            FullName = "Official Host",
-            Role = "Host"
-        });
-
-        Assert.NotNull(reg);
-        Assert.Equal(email, reg.Email);
+        var reg = _authService.Register(NewRegistration("Host"));
         Assert.Equal("Host", reg.Role);
     }
 
     [Fact]
-    public void AuthController_Login_WithHostPortal_ReturnsHostAuthResponse()
+    public void Login_UnknownEmail_IsRejectedAndDoesNotCreateAccount()
+    {
+        var email = $"admin_{Guid.NewGuid():N}@gmail.com";
+
+        Assert.Throws<UnauthorizedAccessException>(() => _authService.Login(email, "whatever123"));
+        Assert.Null(_authService.FindUser(email));
+    }
+
+    [Fact]
+    public void Login_WrongPassword_IsRejected()
+    {
+        Assert.Throws<UnauthorizedAccessException>(() => _authService.Login("admin@groove.live", "admin123"));
+    }
+
+    [Fact]
+    public void BecomeHost_UpgradesPlayerExplicitly()
+    {
+        var reg = _authService.Register(NewRegistration());
+        Assert.Equal("Player", _authService.Login(reg.Email, "strongPassword123").Role);
+
+        var upgraded = _authService.BecomeHost(reg.Email);
+
+        Assert.Equal("Host", upgraded.Role);
+        Assert.Equal("Host", _authService.FindUser(reg.Email)!.Role);
+    }
+
+    [Fact]
+    public void BecomeHost_DoesNotDowngradeAdmin()
+    {
+        Assert.Equal("Admin", _authService.BecomeHost("admin@groove.live").Role);
+    }
+
+    [Fact]
+    public void AssignRole_CannotRemoveLastAdmin()
+    {
+        Assert.Equal(RoleChangeResult.WouldRemoveLastAdmin, _authService.AssignRole("admin@groove.live", "Host"));
+        Assert.Equal("Admin", _authService.FindUser("admin@groove.live")!.Role);
+    }
+
+    [Fact]
+    public void AssignRole_RejectsUnknownRole()
+    {
+        var reg = _authService.Register(NewRegistration());
+        Assert.Equal(RoleChangeResult.InvalidRole, _authService.AssignRole(reg.Email, "SuperAdmin"));
+    }
+
+    [Fact]
+    public void AssignRole_PromotesExistingUser()
+    {
+        var reg = _authService.Register(NewRegistration());
+        Assert.Equal(RoleChangeResult.Ok, _authService.AssignRole(reg.Email, "host"));
+        Assert.Equal("Host", _authService.FindUser(reg.Email)!.Role);
+    }
+
+    [Fact]
+    public void AuthController_Login_UnknownUser_Returns401()
     {
         var controller = new AuthController(_authService);
-        var email = $"controller_host_{Guid.NewGuid():N}@gmail.com";
 
         var actionResult = controller.Login(new LoginRequest
         {
-            Email = email,
-            Password = "password123",
-            Portal = "Host",
-            RequestedRole = "Host"
+            Email = $"controller_host_{Guid.NewGuid():N}@gmail.com",
+            Password = "password123"
         });
 
-        var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
-        var authResponse = Assert.IsType<AuthResponse>(okResult.Value);
-        Assert.Equal("Host", authResponse.Role);
-        Assert.Equal(email, authResponse.Email);
+        Assert.IsType<UnauthorizedObjectResult>(actionResult.Result);
     }
+
+    [Fact]
+    public void SessionAccess_OnlyOwningHostOrAdminCanControl()
+    {
+        var session = new GameSession { Pin = "123456", HostId = "owner@test.live" };
+
+        static ClaimsPrincipal As(string email, string role) => new(new ClaimsIdentity(new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, email),
+            new Claim(ClaimTypes.Role, role)
+        }, "test"));
+
+        Assert.True(As("owner@test.live", "Host").CanControl(session));
+        Assert.False(As("other@test.live", "Host").CanControl(session));
+        Assert.False(As("owner@test.live", "Player").CanControl(session));
+        Assert.True(As("someone@test.live", "Admin").CanControl(session));
+        Assert.False(new ClaimsPrincipal(new ClaimsIdentity()).CanControl(session));
+    }
+
 
     [Fact]
     public void TournamentLeaderboard_AggregatesPlayersAcrossMultipleSessions()

@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using TriviaSync.Api.Hubs;
 using TriviaSync.Api.Models;
 using TriviaSync.Api.Services;
 
@@ -10,8 +12,6 @@ public class CreateSessionRequest
     public string? QuizId { get; set; }
     public List<string>? QuizIds { get; set; }
     public Quiz? Quiz { get; set; }
-    public string HostId { get; set; } = "host";
-    public string HostEmail { get; set; } = "";
     public string TournamentName { get; set; } = "";
     public string SessionType { get; set; } = "Single"; // "Single" or "MultiSession"
     public int SessionCount { get; set; } = 1;
@@ -36,28 +36,35 @@ public class SessionsController : ControllerBase
     private readonly IGameEngineService _gameEngine;
     private readonly ITriviaDataService _dataService;
     private readonly IExportService _exportService;
+    private readonly IHubContext<QuizHub, IQuizClient> _hub;
+    private readonly ITournamentService _tournaments;
     private readonly ILogger<SessionsController> _logger;
 
     public SessionsController(
         IGameEngineService gameEngine,
         ITriviaDataService dataService,
         IExportService exportService,
+        IHubContext<QuizHub, IQuizClient> hub,
+        ITournamentService tournaments,
         ILogger<SessionsController> logger)
     {
         _gameEngine = gameEngine;
         _dataService = dataService;
         _exportService = exportService;
+        _hub = hub;
+        _tournaments = tournaments;
         _logger = logger;
     }
 
-    [Authorize(Roles = "Host,Admin,SuperAdmin")]
+    [Authorize(Policy = "HostOnly")]
     [HttpPost]
     public async Task<ActionResult> CreateSession([FromBody] CreateSessionRequest request)
     {
-        var hostId = string.IsNullOrWhiteSpace(request.HostId) ? "host" : request.HostId.Trim();
+        // Sessions are always owned by the caller; never trust a host id from the request body.
+        var hostId = User.UserEmail()!;
         var tournamentId = $"tourn_{Guid.NewGuid().ToString("N")[..8]}";
         var tournamentName = string.IsNullOrWhiteSpace(request.TournamentName) 
-            ? $"Arena Tournament {DateTime.UtcNow:MMM dd HH:mm}" 
+            ? $"Tournament {DateTime.UtcNow:MMM d}"
             : request.TournamentName.Trim();
 
         // 1. Check if Multi-Session Tournament was requested
@@ -159,7 +166,7 @@ public class SessionsController : ControllerBase
             hostId: hostId,
             autoAdvance: request.AutoAdvance,
             tournamentId: tournamentId,
-            tournamentName: tournamentName,
+            tournamentName: string.IsNullOrWhiteSpace(request.TournamentName) ? singleQuiz.Title : tournamentName,
             sessionNumber: 1,
             totalSessions: 1,
             sessionType: "Single"
@@ -194,14 +201,16 @@ public class SessionsController : ControllerBase
         });
     }
 
+    /// <summary>Active sessions the caller can run: their own, or every session for admins.</summary>
+    [Authorize(Policy = "HostOnly")]
     [HttpGet]
     public ActionResult GetActiveSessions([FromQuery] string? hostId = null)
     {
-        var query = string.IsNullOrWhiteSpace(hostId) 
-            ? _gameEngine.GetAllActiveSessions() 
-            : _gameEngine.GetSessionsByHost(hostId);
+        var query = User.IsAdmin()
+            ? (string.IsNullOrWhiteSpace(hostId) ? _gameEngine.GetAllActiveSessions() : _gameEngine.GetSessionsByHost(hostId))
+            : _gameEngine.GetSessionsByHost(User.UserEmail()!);
 
-        var sessions = query.Select(s => new
+        var sessions = query.OrderByDescending(s => s.CreatedAt).Select(s => new
         {
             pin = s.Pin,
             quizId = s.QuizId,
@@ -223,9 +232,15 @@ public class SessionsController : ControllerBase
         return Ok(sessions);
     }
 
+    [Authorize(Policy = "HostOnly")]
     [HttpGet("host/{hostId}")]
     public ActionResult GetSessionsByHost(string hostId)
     {
+        if (!User.IsAdmin() && !string.Equals(hostId, User.UserEmail(), StringComparison.OrdinalIgnoreCase))
+        {
+            return Forbid();
+        }
+
         var sessions = _gameEngine.GetSessionsByHost(hostId).Select(s => new
         {
             pin = s.Pin,
@@ -277,11 +292,11 @@ public class SessionsController : ControllerBase
             sessionNumber = session.SessionNumber,
             totalSessions = session.TotalSessions,
             sessionType = session.SessionType,
-            hostId = session.HostId,
             state = session.State.ToString(),
             currentQuestionIndex = session.CurrentQuestionIndex,
             totalQuestions = session.Quiz.Questions.Count,
             connectedPlayerCount = session.ConnectedPlayerCount,
+            canControl = User.CanControl(session),
             players = session.Players.Values.Select(p => new
             {
                 playerId = p.PlayerId,
@@ -294,18 +309,33 @@ public class SessionsController : ControllerBase
         });
     }
 
-    [Authorize(Roles = "Host,Admin,SuperAdmin")]
+    [Authorize(Policy = "HostOnly")]
     [HttpDelete("{pin}")]
-    public ActionResult CloseSession(string pin)
+    public async Task<ActionResult> CloseSession(string pin)
     {
-        var closed = _gameEngine.CloseSession(pin.ToUpperInvariant());
-        if (closed)
+        var cleanPin = pin.ToUpperInvariant();
+        var session = _gameEngine.GetSession(cleanPin);
+        if (session == null)
         {
-            return Ok(new { message = $"Session '{pin}' closed." });
+            return NotFound(new { message = $"Session '{pin}' not found." });
         }
-        return NotFound(new { message = $"Session '{pin}' not found." });
+        if (!User.CanControl(session))
+        {
+            return Forbid();
+        }
+
+        await _hub.Clients.Group(cleanPin).SessionClosed(new { message = "The host ended this game." });
+        _gameEngine.CloseSession(cleanPin);
+        if (!string.IsNullOrEmpty(session.TournamentSessionId))
+        {
+            // A finished game already recorded its results; one ended early is discarded so it can be run again.
+            _tournaments.EndLive(session.TournamentSessionId, finished: session.State == GameState.GameEnded, Array.Empty<LivePlayerResult>());
+        }
+        _logger.LogInformation("Session {Pin} closed by {User}", cleanPin, User.UserEmail());
+        return Ok(new { message = $"Session '{pin}' closed." });
     }
 
+    [Authorize(Policy = "HostOnly")]
     [HttpGet("{pin}/export/csv")]
     public ActionResult ExportSessionCsv(string pin)
     {
@@ -314,11 +344,16 @@ public class SessionsController : ControllerBase
         {
             return NotFound(new { message = $"Session '{pin}' not found." });
         }
+        if (!User.CanControl(session))
+        {
+            return Forbid();
+        }
 
         var bytes = _exportService.ExportSessionToCsv(session);
         return File(bytes, "text/csv; charset=utf-8", $"Groove_Session_{pin}.csv");
     }
 
+    [Authorize(Policy = "HostOnly")]
     [HttpGet("{pin}/export/excel")]
     public ActionResult ExportSessionExcel(string pin)
     {
@@ -326,6 +361,10 @@ public class SessionsController : ControllerBase
         if (session == null)
         {
             return NotFound(new { message = $"Session '{pin}' not found." });
+        }
+        if (!User.CanControl(session))
+        {
+            return Forbid();
         }
 
         var bytes = _exportService.ExportSessionToExcelXml(session);

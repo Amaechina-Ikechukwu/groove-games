@@ -3,752 +3,240 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Groove - Public Tournament & Global Leaderboard</title>
-  <link rel="stylesheet" href="/css/style.css?v=3.5">
+  <title>Standings · Groove</title>
+  <link rel="stylesheet" href="/css/style.css?v=4.2">
   <style>
-    body {
-      background: var(--bg-dark);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .leaderboard-viewport {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 2rem 1.5rem 5rem 1.5rem;
-      width: 100%;
-      flex: 1;
-    }
-
-    /* Podium Presentation */
-    .podium-showcase {
-      display: flex;
-      justify-content: center;
-      align-items: flex-end;
-      gap: 1.25rem;
-      margin: 2.5rem 0 3rem 0;
-      min-height: 240px;
-    }
-
-    .podium-slot {
-      flex: 1;
-      max-width: 260px;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      transition: transform 0.3s ease;
-    }
-
-    .podium-slot:hover {
-      transform: translateY(-6px);
-    }
-
-    .podium-pillar {
-      width: 100%;
-      border-radius: 14px 14px 0 0;
-      padding: 1.5rem 1rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      position: relative;
-    }
-
-    .podium-1 .podium-pillar {
-      height: 170px;
-      background: linear-gradient(180deg, rgba(255, 215, 0, 0.25) 0%, rgba(18, 21, 27, 0.95) 100%);
-      border-color: #FFD700;
-      box-shadow: 0 0 35px rgba(255, 215, 0, 0.2);
-    }
-
-    .podium-2 .podium-pillar {
-      height: 135px;
-      background: linear-gradient(180deg, rgba(224, 230, 237, 0.2) 0%, rgba(18, 21, 27, 0.95) 100%);
-      border-color: #E0E6ED;
-      box-shadow: 0 0 25px rgba(224, 230, 237, 0.15);
-    }
-
-    .podium-3 .podium-pillar {
-      height: 105px;
-      background: linear-gradient(180deg, rgba(255, 159, 67, 0.2) 0%, rgba(18, 21, 27, 0.95) 100%);
-      border-color: #FF9F43;
-      box-shadow: 0 0 25px rgba(255, 159, 67, 0.15);
-    }
-
-    .podium-name {
-      font-family: var(--font-display);
-      font-weight: 900;
-      font-size: 1.15rem;
-      color: #fff;
-      margin-bottom: 0.25rem;
-      text-overflow: ellipsis;
-      overflow: hidden;
-      white-space: nowrap;
-      max-width: 100%;
-    }
-
-    .podium-score {
-      font-family: var(--font-display);
-      font-weight: 900;
-      font-size: 1.35rem;
-      letter-spacing: 0.5px;
-    }
-
-    .podium-1 .podium-score {
-      color: #FFD700;
-      text-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
-    }
-
-    .podium-2 .podium-score {
-      color: #E0E6ED;
-    }
-
-    .podium-3 .podium-score {
-      color: #FF9F43;
-    }
-
-    /* Tournament Sessions Chips Bar */
-    .sessions-chips-bar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.65rem;
-      margin-top: 1rem;
-    }
-
-    .session-chip {
-      background: var(--bg-surface-elevated);
-      border: 1px solid var(--border-cyber);
-      padding: 0.5rem 0.85rem;
-      border-radius: 8px;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.85rem;
-    }
-
-    .session-chip.is-active {
-      border-color: var(--neon-lime);
-      box-shadow: 0 0 12px var(--neon-lime-glow);
-    }
-
-    .session-pin-tag {
-      font-family: var(--font-display);
-      font-weight: 900;
-      color: var(--neon-lime);
-      letter-spacing: 1px;
-    }
-
-    @media (max-width: 768px) {
-      .leaderboard-viewport {
-        padding: 1.25rem 0.85rem 4rem 0.85rem;
-      }
-      .podium-showcase {
-        gap: 0.35rem;
-        margin: 1.25rem 0 1.75rem 0;
-        min-height: 160px;
-      }
-      .podium-1 .podium-pillar {
-        height: 125px;
-        padding: 0.75rem 0.35rem;
-      }
-      .podium-2 .podium-pillar {
-        height: 95px;
-        padding: 0.75rem 0.35rem;
-      }
-      .podium-3 .podium-pillar {
-        height: 75px;
-        padding: 0.75rem 0.35rem;
-      }
-      .podium-name {
-        font-size: 0.82rem;
-      }
-      .podium-score {
-        font-size: 0.95rem;
-      }
-      .header-actions-group {
-        width: 100%;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
-      .header-actions-group > * {
-        flex: 1 1 auto;
-        justify-content: center;
-      }
-    }
+    .panel { display: none; }
+    .panel.is-active { display: block; animation: fade-in .15s ease-out; }
+    .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+    .filters .field { flex: 1; min-width: 220px; }
+    .pin-lookup { display: flex; gap: 8px; }
+    .pin-lookup .input { width: 130px; letter-spacing: 0.1em; text-align: center; font-variant-numeric: tabular-nums; }
+    .rounds { display: flex; gap: 6px; flex-wrap: wrap; }
+    .updated { font-size: 0.8125rem; color: var(--text-3); }
   </style>
 </head>
-<body>
-
-  <!-- Top Gaming Navigation Bar -->
-  <nav class="navbar">
-    <a href="/" class="brand-container">
-      <div class="brand-glyph">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0A0C0F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 22px; height: 22px; flex-shrink: 0;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-      </div>
-      <div class="brand-title">GROO<span class="accent">VE</span> STANDINGS</div>
-    </a>
-
-    <div class="nav-pill-group">
-      <a href="/leaderboard.html" class="nav-pill active">STANDINGS</a>
-      <a href="/player.html" class="nav-pill">BUZZER</a>
-      <a href="/host.html" class="nav-pill">HOST SCREEN</a>
-      <a href="/admin.html" class="nav-pill">ADMIN DECK</a>
+<body class="has-tabbar">
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a href="/" class="brand" aria-label="Groove home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span class="brand-name">Groove</span>
+      </a>
+      <nav class="nav" aria-label="Main">
+        <a href="/player.html">Join</a>
+        <a href="/tournaments.html">Tournaments</a>
+        <a href="/host.html">Host</a>
+    <a href="/leaderboard.html" aria-current="page">Standings</a>
+        <a href="/admin.html" data-admin-only hidden>Admin</a>
+      </nav>
+      <div class="account" id="account"></div>
     </div>
-  </nav>
+  </header>
 
-  <!-- Main Viewport -->
-  <main class="leaderboard-viewport">
-
-    <!-- Header Banner -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 2rem;">
-      <div>
-        <div style="display: inline-flex; align-items: center; gap: 0.5rem; color: var(--neon-lime); font-family: var(--font-display); font-weight: 800; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 0.35rem;">
-          <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--neon-lime); box-shadow: 0 0 10px var(--neon-lime);"></span>
-          PUBLIC LIVE ARENA STANDINGS
+  <main class="page">
+    <div class="container">
+      <div class="spread mb-6">
+        <div>
+          <h1>Standings</h1>
+          <p class="muted mt-1">Public tournament standings and all-time scores. They update automatically.</p>
         </div>
-        <h1 style="font-family: var(--font-display); font-size: 2.8rem; font-weight: 900; letter-spacing: -0.5px; text-transform: uppercase; margin: 0; line-height: 1.1;">
-          OFFICIAL <span style="color: var(--neon-lime);">LEADERBOARD</span>
-        </h1>
-        <p style="color: var(--text-secondary); font-size: 1rem; margin-top: 0.5rem; max-width: 650px;">
-          Live public rankings across multi-session tournaments and all-time contender scores. No sign-in required.
-        </p>
+        <div class="row-wrap" id="exportButtons" hidden>
+          <button type="button" class="btn btn-secondary btn-sm" id="exportCsv"><span data-icon="download"></span>All-time CSV</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="exportExcel"><span data-icon="download"></span>All-time Excel</button>
+        </div>
       </div>
 
-      <div class="header-actions-group" style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-        <button onclick="refreshActiveTab()" class="btn-cyber btn-lime" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1.25rem;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-          REFRESH LIVE
-        </button>
-        <a id="btnGlobalExportCsv" href="/api/leaderboard/export/csv" class="btn-cyber btn-dark" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.65rem 1rem;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          CSV
-        </a>
-        <a id="btnGlobalExportExcel" href="/api/leaderboard/export/excel" class="btn-cyber btn-dark" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.65rem 1rem;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
-          EXCEL
-        </a>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-tab="panelTournament" aria-selected="true">Tournaments</button>
+        <button class="tab" role="tab" data-tab="panelAllTime">All time</button>
       </div>
-    </div>
 
-    <!-- Navigation Tabs -->
-    <div style="display: flex; gap: 0.75rem; margin-bottom: 2rem; border-bottom: 1px solid var(--border-cyber); padding-bottom: 1rem;">
-      <button id="tabBtnTournament" onclick="switchLeaderboardTab('tournament')" class="tab-btn active" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path><path d="M6 4h12v7a6 6 0 0 1-12 0V4z"></path></svg>
-        TOURNAMENT STANDINGS
-      </button>
-      <button id="tabBtnGlobal" onclick="switchLeaderboardTab('global')" class="tab-btn" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-        GLOBAL HALL OF FAME
-      </button>
-    </div>
-
-    <!-- TAB 1: TOURNAMENT STANDINGS (Multi-Session Cumulative) -->
-    <div id="tabContentTournament">
-      <div class="cyber-card" style="padding: 1.5rem; margin-bottom: 2rem;">
-        <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
-          <div style="flex: 1; min-width: 260px;">
-            <label style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.35rem;">
-              SELECT ACTIVE TOURNAMENT
-            </label>
-            <select id="tournamentSelectDropdown" class="form-input-cyber" onchange="loadTournamentLeaderboard(this.value)">
-              <option value="">Searching for active tournaments...</option>
-            </select>
+      <!-- Tournament -->
+      <section class="panel is-active" id="panelTournament" role="tabpanel">
+        <div class="card mb-4">
+          <div class="field">
+            <label class="label" for="tournamentSelect">Tournament</label>
+            <select class="select" id="tournamentSelect"><option value="">Loading…</option></select>
           </div>
-          <div style="width: 200px;">
-            <label style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.35rem;">
-              LOOKUP BY SESSION PIN
-            </label>
-            <div style="display: flex; gap: 0.5rem;">
-              <input type="text" id="lookupPinInput" class="form-input-cyber" placeholder="PIN" maxlength="6" style="text-align: center; font-weight: 800; letter-spacing: 2px;">
-              <button onclick="lookupByPin()" class="btn-cyber btn-lime" style="padding: 0.6rem 0.85rem;">GO</button>
+        </div>
+        <div id="tournamentBody"></div>
+      </section>
+
+      <!-- All time -->
+      <section class="panel" id="panelAllTime" role="tabpanel">
+        <div class="podium mb-6" id="allTimePodium" hidden></div>
+        <div class="card">
+          <div class="spread mb-4">
+            <div style="max-width: 360px; flex: 1;">
+              <label class="sr-only" for="search">Search players</label>
+              <input class="input" id="search" type="search" placeholder="Search by name">
             </div>
+            <span class="updated" id="allTimeUpdated"></span>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>#</th><th>Player</th><th class="right">Points</th><th class="right hide-sm">Games</th><th class="right">Accuracy</th><th class="right hide-sm">Best streak</th><th class="hide-sm">Last played</th></tr></thead>
+              <tbody id="allTimeTable"><tr><td colspan="7" class="empty-row">Loading…</td></tr></tbody>
+            </table>
           </div>
         </div>
-
-        <!-- Tournament Overview Banner -->
-        <div id="tournamentMetaCard" style="display: none; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-cyber);">
-          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-            <div>
-              <h2 id="tournMetaName" style="font-family: var(--font-display); font-size: 1.5rem; font-weight: 900; text-transform: uppercase; margin: 0;"></h2>
-              <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
-                Cumulative scores aggregated across <span id="tournSessionCount" style="color: var(--neon-lime); font-weight: 800;">1</span> session(s)
-              </div>
-            </div>
-            <div id="tournSessionsBadges" class="sessions-chips-bar">
-              <!-- Dynamically rendered session chips -->
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Top 3 Podium -->
-      <div id="tournPodiumContainer" class="podium-showcase" style="display: none;">
-        <!-- Rank 2 -->
-        <div class="podium-slot podium-2">
-          <div class="podium-name" id="tournPodiumName2">—</div>
-          <div class="podium-pillar">
-            <span class="rank-badge rank-2" style="margin-bottom: 0.5rem;">#2</span>
-            <div class="podium-score" id="tournPodiumScore2">0 PTS</div>
-          </div>
-        </div>
-        <!-- Rank 1 -->
-        <div class="podium-slot podium-1">
-          <div class="podium-name" id="tournPodiumName1">—</div>
-          <div class="podium-pillar">
-            <span class="rank-badge rank-1" style="margin-bottom: 0.5rem;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-              #1
-            </span>
-            <div class="podium-score" id="tournPodiumScore1">0 PTS</div>
-          </div>
-        </div>
-        <!-- Rank 3 -->
-        <div class="podium-slot podium-3">
-          <div class="podium-name" id="tournPodiumName3">—</div>
-          <div class="podium-pillar">
-            <span class="rank-badge rank-3" style="margin-bottom: 0.5rem;">#3</span>
-            <div class="podium-score" id="tournPodiumScore3">0 PTS</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Leaderboard Data Table -->
-      <div class="cyber-card" style="padding: 1.5rem;">
-        <div class="table-responsive">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th style="width: 70px;">Rank</th>
-                <th>Contender</th>
-                <th>Cumulative Points</th>
-                <th>Sessions Played</th>
-                <th>Accuracy %</th>
-                <th>Highest Streak</th>
-              </tr>
-            </thead>
-            <tbody id="tournTableBody">
-              <tr>
-                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 3rem 1rem;">
-                  Select an active tournament from the dropdown above to view live standings.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+      </section>
     </div>
-
-    <!-- TAB 2: GLOBAL HALL OF FAME -->
-    <div id="tabContentGlobal" style="display: none;">
-      <!-- Search & Filters -->
-      <div class="cyber-card" style="padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;">
-        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-          <input type="text" id="globalSearchInput" class="form-input-cyber" placeholder="Search contender by name or ID..." style="flex: 1; min-width: 250px;" oninput="debounceGlobalSearch()">
-          <select id="globalOrgSelect" class="form-input-cyber" style="width: 200px;" onchange="loadGlobalLeaderboard()">
-            <option value="">All Organizations</option>
-            <option value="global">Global</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Top 3 Podium for Global -->
-      <div id="globalPodiumContainer" class="podium-showcase" style="display: none;">
-        <!-- Rank 2 -->
-        <div class="podium-slot podium-2">
-          <div class="podium-name" id="globalPodiumName2">—</div>
-          <div class="podium-pillar">
-            <span class="rank-badge rank-2" style="margin-bottom: 0.5rem;">#2</span>
-            <div class="podium-score" id="globalPodiumScore2">0 PTS</div>
-          </div>
-        </div>
-        <!-- Rank 1 -->
-        <div class="podium-slot podium-1">
-          <div class="podium-name" id="globalPodiumName1">—</div>
-          <div class="podium-pillar">
-            <span class="rank-badge rank-1" style="margin-bottom: 0.5rem;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-              #1
-            </span>
-            <div class="podium-score" id="globalPodiumScore1">0 PTS</div>
-          </div>
-        </div>
-        <!-- Rank 3 -->
-        <div class="podium-slot podium-3">
-          <div class="podium-name" id="globalPodiumName3">—</div>
-          <div class="podium-pillar">
-            <span class="rank-badge rank-3" style="margin-bottom: 0.5rem;">#3</span>
-            <div class="podium-score" id="globalPodiumScore3">0 PTS</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Global Table -->
-      <div class="cyber-card" style="padding: 1.5rem;">
-        <div class="table-responsive">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th style="width: 70px;">Rank</th>
-                <th>Contender</th>
-                <th>Organization</th>
-                <th>Total All-Time Points</th>
-                <th>Quizzes Played</th>
-                <th>Accuracy %</th>
-                <th>Highest Streak</th>
-                <th>Last Active</th>
-              </tr>
-            </thead>
-            <tbody id="globalTableBody">
-              <tr>
-                <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 3rem 1rem;">
-                  Loading global standings...
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
   </main>
 
-  <script src="/js/audio.js"></script>
+
+  <nav class="tabbar" aria-label="Main">
+    <a href="/"><span data-icon="home"></span>Home</a>
+    <a href="/player.html"><span data-icon="gamepad"></span>Play</a>
+    <a href="/tournaments.html"><span data-icon="users"></span>Tournaments</a>
+    <a href="/leaderboard.html" aria-current="page"><span data-icon="trophy"></span>Standings</a>
+  </nav>
+
+  <script src="/js/ui.js?v=4.2"></script>
   <script>
-    let activeTab = 'tournament';
-    let currentTournamentId = '';
-    let searchDebounceTimer = null;
+  (function () {
+    const $ = id => document.getElementById(id);
+    let activeTab = 'panelTournament';
+    let tournamentId = new URLSearchParams(location.search).get('tournament') || '';
+    let searchTimer = null;
 
-    document.addEventListener('DOMContentLoaded', () => {
-      loadTournamentsList();
-      loadGlobalLeaderboard();
-
-      // Auto-refresh every 12 seconds
-      setInterval(() => {
-        if (activeTab === 'tournament' && currentTournamentId) {
-          loadTournamentLeaderboard(currentTournamentId, false);
-        } else if (activeTab === 'global') {
-          loadGlobalLeaderboard(false);
-        }
-      }, 12000);
-    });
-
-    function switchLeaderboardTab(tab) {
-      activeTab = tab;
-      const tBtn = document.getElementById('tabBtnTournament');
-      const gBtn = document.getElementById('tabBtnGlobal');
-      const tContent = document.getElementById('tabContentTournament');
-      const gContent = document.getElementById('tabContentGlobal');
-
-      if (tab === 'tournament') {
-        tBtn.classList.add('active');
-        gBtn.classList.remove('active');
-        tContent.style.display = 'block';
-        gContent.style.display = 'none';
-      } else {
-        gBtn.classList.add('active');
-        tBtn.classList.remove('active');
-        gContent.style.display = 'block';
-        tContent.style.display = 'none';
-        loadGlobalLeaderboard();
-      }
+    function podium(container, top, nameKey, scoreKey) {
+      if (!top.length) { container.hidden = true; return; }
+      container.hidden = false;
+      container.innerHTML = [1, 0, 2].map(i => {
+        const p = top[i];
+        return `
+          <div class="podium-place p${i + 1} ${p ? '' : 'is-empty'}">
+            <div class="podium-name">${p ? UI.escape(p[nameKey]) : ''}</div>
+            <div class="podium-score">${p ? UI.formatNumber(p[scoreKey]) + ' pts' : ''}</div>
+            <div class="podium-block">${i + 1}</div>
+          </div>`;
+      }).join('');
     }
 
-    function refreshActiveTab() {
-      if (activeTab === 'tournament') {
-        loadTournamentsList();
-        if (currentTournamentId) loadTournamentLeaderboard(currentTournamentId);
-      } else {
-        loadGlobalLeaderboard();
-      }
+    function selectTab(id) {
+      activeTab = id;
+      document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === id)));
+      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('is-active', p.id === id));
+      if (id === 'panelAllTime') loadAllTime();
+      else loadTournaments();
     }
 
-    // ========================================================================
-    // TOURNAMENTS (MULTI-SESSION)
-    // ========================================================================
-    async function loadTournamentsList() {
+    // Tournaments (public) ---------------------------------------------------
+    async function loadTournaments() {
+      const select = $('tournamentSelect');
       try {
-        const res = await fetch('/api/leaderboard/tournaments');
-        if (res.ok) {
-          const list = await res.json();
-          const select = document.getElementById('tournamentSelectDropdown');
-          select.innerHTML = '';
-
-          if (list.length === 0) {
-            select.innerHTML = '<option value="">No active tournaments found (Launch one on Host Screen)</option>';
-            return;
-          }
-
-          select.innerHTML = '<option value="">-- Choose a live tournament --</option>';
-          list.forEach(t => {
-            const opt = document.createElement('option');
-            opt.value = t.tournamentId;
-            opt.textContent = `${t.tournamentName} (${t.sessionCount} Sessions, ${t.totalPlayers} Contenders)`;
-            select.appendChild(opt);
-          });
-
-          // If no tournament selected yet, select first
-          if (!currentTournamentId && list.length > 0) {
-            select.value = list[0].tournamentId;
-            loadTournamentLeaderboard(list[0].tournamentId);
-          }
+        const list = await UI.api('/api/tournaments/public', { auth: false });
+        if (!list.length) {
+          select.innerHTML = '<option value="">No tournaments yet</option>';
+          $('tournamentBody').innerHTML = '<div class="empty"><h3>No tournaments yet</h3><p>Tournament standings show up here once a host creates one.</p></div>';
+          return;
         }
+        select.innerHTML = list.map(t =>
+          `<option value="${UI.escape(t.id)}">${UI.escape(t.name)} · ${UI.escape(t.hostName)}</option>`).join('');
+        if (!tournamentId || !list.some(t => t.id === tournamentId)) tournamentId = list[0].id;
+        select.value = tournamentId;
+        loadTournament();
       } catch (err) {
-        console.error('Error fetching tournaments:', err);
+        select.innerHTML = `<option value="">${UI.escape(err.message)}</option>`;
       }
     }
 
-    async function lookupByPin() {
-      const pin = document.getElementById('lookupPinInput').value.trim().toUpperCase();
-      if (!pin) return;
-
-      try {
-        const res = await fetch(`/api/sessions/${pin}`);
-        if (res.ok) {
-          const s = await res.json();
-          if (s.tournamentId) {
-            currentTournamentId = s.tournamentId;
-            loadTournamentLeaderboard(s.tournamentId);
-          } else {
-            alert(`Found session ${pin}, but it is not linked to a tournament.`);
-          }
-        } else {
-          alert(`Session with PIN '${pin}' not found.`);
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-    async function loadTournamentLeaderboard(tournamentId, showLoading = true) {
+    async function loadTournament(quiet) {
       if (!tournamentId) return;
-      currentTournamentId = tournamentId;
-
-      const tbody = document.getElementById('tournTableBody');
-      if (showLoading) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 3rem 1rem;">Fetching tournament scores...</td></tr>';
-      }
-
+      const body = $('tournamentBody');
+      if (!quiet) body.innerHTML = '<p class="muted">Loading…</p>';
       try {
-        const res = await fetch(`/api/leaderboard/tournament/${encodeURIComponent(tournamentId)}`);
-        if (res.ok) {
-          const data = await res.json();
-          renderTournamentView(data);
-        } else {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 3rem 1rem;">Tournament data not available.</td></tr>';
-        }
-      } catch (err) {
-        console.error('Error loading tournament leaderboard:', err);
-      }
-    }
-
-    function renderTournamentView(data) {
-      const metaCard = document.getElementById('tournamentMetaCard');
-      metaCard.style.display = 'block';
-      document.getElementById('tournMetaName').textContent = data.tournamentName || 'Tournament';
-      document.getElementById('tournSessionCount').textContent = data.totalSessions || 1;
-
-      // Render session PIN chips
-      const badgesContainer = document.getElementById('tournSessionsBadges');
-      badgesContainer.innerHTML = '';
-      if (data.sessions && data.sessions.length > 0) {
-        data.sessions.forEach((s, idx) => {
-          const chip = document.createElement('div');
-          chip.className = 'session-chip' + (s.state === 'QuestionActive' ? ' is-active' : '');
-          chip.innerHTML = `
-            <span style="font-weight: 700; color: var(--text-muted);">Session ${s.sessionNumber || (idx + 1)}:</span>
-            <span class="session-pin-tag">${s.pin}</span>
-            <span class="hud-pill" style="font-size: 0.7rem; padding: 0.15rem 0.45rem;">${s.state}</span>
-          `;
-          badgesContainer.appendChild(chip);
-        });
-      }
-
-      // Podium Top 3
-      const podium = data.leaderboard.slice(0, 3);
-      const podiumCont = document.getElementById('tournPodiumContainer');
-
-      if (podium.length >= 1) {
-        podiumCont.style.display = 'flex';
-        document.getElementById('tournPodiumName1').textContent = podium[0].fullName;
-        document.getElementById('tournPodiumScore1').textContent = `${podium[0].totalScore.toLocaleString()} PTS`;
-
-        if (podium.length >= 2) {
-          document.getElementById('tournPodiumName2').textContent = podium[1].fullName;
-          document.getElementById('tournPodiumScore2').textContent = `${podium[1].totalScore.toLocaleString()} PTS`;
-        } else {
-          document.getElementById('tournPodiumName2').textContent = '—';
-          document.getElementById('tournPodiumScore2').textContent = '0 PTS';
-        }
-
-        if (podium.length >= 3) {
-          document.getElementById('tournPodiumName3').textContent = podium[2].fullName;
-          document.getElementById('tournPodiumScore3').textContent = `${podium[2].totalScore.toLocaleString()} PTS`;
-        } else {
-          document.getElementById('tournPodiumName3').textContent = '—';
-          document.getElementById('tournPodiumScore3').textContent = '0 PTS';
-        }
-      } else {
-        podiumCont.style.display = 'none';
-      }
-
-      // Render Table Rows
-      const tbody = document.getElementById('tournTableBody');
-      tbody.innerHTML = '';
-
-      if (!data.leaderboard || data.leaderboard.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 3rem 1rem;">No contenders have submitted answers in this tournament yet.</td></tr>';
-        return;
-      }
-
-      data.leaderboard.forEach((p, idx) => {
-        const tr = document.createElement('tr');
-        tr.className = 'row-card';
-
-        const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : 'rank-other';
-        const rankIcon = idx === 0 
-          ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>#1` 
-          : `#${idx + 1}`;
-
-        const acc = p.accuracyPercentage || 0;
-        const accClass = acc >= 80 ? 'accuracy-high' : acc >= 50 ? 'accuracy-mid' : 'accuracy-low';
-        const initials = (p.fullName || 'C').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-
-        tr.innerHTML = `
-          <td><span class="rank-badge ${rankClass}">${rankIcon}</span></td>
-          <td>
-            <div class="contender-cell">
-              <div class="contender-avatar">${initials}</div>
-              <div class="contender-name-text">${escapeHtml(p.fullName)}</div>
+        const data = await UI.api(`/api/tournaments/${encodeURIComponent(tournamentId)}/standings`);
+        history.replaceState(null, '', `?tournament=${encodeURIComponent(tournamentId)}`);
+        const t = data.tournament;
+        const rows = data.standings;
+        body.innerHTML = `
+          <div class="spread mb-4">
+            <div>
+              <h2>${UI.escape(t.name)}</h2>
+              <p class="subtle mt-1">Hosted by ${UI.escape(t.hostName)} · ${t.playedCount} of ${t.sessionCount} sessions played${t.activeCount ? ` · <span class="text-lime">${t.activeCount} open now</span>` : ''}</p>
             </div>
-          </td>
-          <td><span class="score-cyber">${(p.totalScore || 0).toLocaleString()} PTS</span></td>
-          <td style="font-weight: 700; color: #fff;">${p.sessionsPlayed || 1} / ${data.totalSessions}</td>
-          <td><span class="accuracy-pill ${accClass}">${acc}% (${p.correctAnswers || 0}/${p.totalAnswers || 0})</span></td>
-          <td>
-            <span class="streak-chip">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFA502" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
-              ${p.highestStreak || 0}
-            </span>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    // ========================================================================
-    // GLOBAL HALL OF FAME
-    // ========================================================================
-    function debounceGlobalSearch() {
-      clearTimeout(searchDebounceTimer);
-      searchDebounceTimer = setTimeout(() => {
-        loadGlobalLeaderboard();
-      }, 350);
-    }
-
-    async function loadGlobalLeaderboard(showLoading = true) {
-      const search = document.getElementById('globalSearchInput')?.value || '';
-      const org = document.getElementById('globalOrgSelect')?.value || '';
-      const tbody = document.getElementById('globalTableBody');
-
-      if (showLoading && tbody) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 3rem 1rem;">Loading global standings...</td></tr>';
+            <a class="btn btn-secondary btn-sm" href="/tournament.html?id=${encodeURIComponent(t.id)}">Tournament page</a>
+          </div>
+          <div class="podium mb-6" id="tournamentPodium" hidden></div>
+          <div class="card">
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>#</th><th>Player</th><th class="right">Points</th><th class="right hide-sm">Sessions</th><th class="right">Correct</th></tr></thead>
+                <tbody>${rows.length ? rows.map(p => `
+                  <tr class="${p.isMe ? 'is-me' : ''}">
+                    <td>${UI.rankBadge(p.rank)}</td>
+                    <td><div class="player-cell">${UI.avatar(p.displayName)}${UI.escape(p.displayName)}${p.isMe ? ' <span class="badge badge-accent">You</span>' : ''}</div></td>
+                    <td class="right score">${UI.formatNumber(p.totalScore)}</td>
+                    <td class="right hide-sm num">${p.sessionsPlayed}</td>
+                    <td class="right num">${p.correct}/${p.answered}</td>
+                  </tr>`).join('') : '<tr><td colspan="5" class="empty-row">No scores yet.</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+          </div>`;
+        podium($('tournamentPodium'), rows.slice(0, 3), 'displayName', 'totalScore');
+      } catch (err) {
+        body.innerHTML = `<div class="empty"><h3>Tournament not found</h3><p>${UI.escape(err.message)}</p></div>`;
       }
+    }
 
+    // All time ---------------------------------------------------------------
+    async function loadAllTime() {
+      const tbody = $('allTimeTable');
+      const search = $('search').value.trim();
       try {
-        const res = await fetch(`/api/leaderboard?search=${encodeURIComponent(search)}&organizationId=${encodeURIComponent(org)}&limit=100`);
-        if (res.ok) {
-          const players = await res.json();
-          renderGlobalView(players);
-        }
+        const players = await UI.api(`/api/leaderboard?limit=100&search=${encodeURIComponent(search)}`);
+        $('allTimeUpdated').textContent = `Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        podium($('allTimePodium'), search ? [] : players.slice(0, 3), 'fullName', 'totalPointsAllTime');
+        tbody.innerHTML = players.length ? players.map((p, i) => `
+          <tr>
+            <td>${UI.rankBadge(i + 1)}</td>
+            <td><div class="player-cell">${UI.avatar(p.fullName)}${UI.escape(p.fullName)}</div></td>
+            <td class="right score">${UI.formatNumber(p.totalPointsAllTime)}</td>
+            <td class="right hide-sm num">${p.quizzesPlayed || 0}</td>
+            <td class="right num">${Math.round(p.accuracyPercentage || 0)}%</td>
+            <td class="right hide-sm num">${p.highestStreak || 0}</td>
+            <td class="hide-sm muted">${new Date(p.lastActive).toLocaleDateString()}</td>
+          </tr>`).join('')
+          : `<tr><td colspan="7" class="empty-row">${search ? 'No players match your search.' : 'No scores yet. They appear after the first game finishes.'}</td></tr>`;
       } catch (err) {
-        console.error('Error fetching global leaderboard:', err);
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-row">${UI.escape(err.message)}</td></tr>`;
       }
     }
 
-    function renderGlobalView(players) {
-      const tbody = document.getElementById('globalTableBody');
-      tbody.innerHTML = '';
-
-      if (players.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 3rem 1rem;">No registered contenders found.</td></tr>';
-        document.getElementById('globalPodiumContainer').style.display = 'none';
-        return;
-      }
-
-      // Podium Top 3
-      const podium = players.slice(0, 3);
-      const podiumCont = document.getElementById('globalPodiumContainer');
-
-      if (podium.length >= 1) {
-        podiumCont.style.display = 'flex';
-        document.getElementById('globalPodiumName1').textContent = podium[0].fullName;
-        document.getElementById('globalPodiumScore1').textContent = `${podium[0].totalPointsAllTime.toLocaleString()} PTS`;
-
-        if (podium.length >= 2) {
-          document.getElementById('globalPodiumName2').textContent = podium[1].fullName;
-          document.getElementById('globalPodiumScore2').textContent = `${podium[1].totalPointsAllTime.toLocaleString()} PTS`;
-        } else {
-          document.getElementById('globalPodiumName2').textContent = '—';
-          document.getElementById('globalPodiumScore2').textContent = '0 PTS';
-        }
-
-        if (podium.length >= 3) {
-          document.getElementById('globalPodiumName3').textContent = podium[2].fullName;
-          document.getElementById('globalPodiumScore3').textContent = `${podium[2].totalPointsAllTime.toLocaleString()} PTS`;
-        } else {
-          document.getElementById('globalPodiumName3').textContent = '—';
-          document.getElementById('globalPodiumScore3').textContent = '0 PTS';
-        }
-      } else {
-        podiumCont.style.display = 'none';
-      }
-
-      // Render Rows
-      players.forEach((p, idx) => {
-        const tr = document.createElement('tr');
-        tr.className = 'row-card';
-
-        const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : 'rank-other';
-        const rankIcon = idx === 0 
-          ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>#1` 
-          : `#${idx + 1}`;
-
-        const acc = p.accuracyPercentage || 0;
-        const accClass = acc >= 80 ? 'accuracy-high' : acc >= 50 ? 'accuracy-mid' : 'accuracy-low';
-        const initials = (p.fullName || 'C').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-
-        tr.innerHTML = `
-          <td><span class="rank-badge ${rankClass}">${rankIcon}</span></td>
-          <td>
-            <div class="contender-cell">
-              <div class="contender-avatar">${initials}</div>
-              <div class="contender-name-text">${escapeHtml(p.fullName)}</div>
-            </div>
-          </td>
-          <td><span class="hud-pill" style="font-size: 0.75rem;">${escapeHtml(p.organizationId || 'global')}</span></td>
-          <td><span class="score-cyber">${(p.totalPointsAllTime || 0).toLocaleString()} PTS</span></td>
-          <td style="font-weight: 700; color: #fff;">${p.quizzesPlayed || 0}</td>
-          <td><span class="accuracy-pill ${accClass}">${acc}%</span></td>
-          <td>
-            <span class="streak-chip">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFA502" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
-              ${p.highestStreak || 0}
-            </span>
-          </td>
-          <td style="color: var(--text-muted); font-size: 0.85rem;">${new Date(p.lastActive).toLocaleDateString()}</td>
-        `;
-        tbody.appendChild(tr);
-      });
+    // Exports (hosts and admins only) ----------------------------------------
+    function renderChrome() {
+      UI.renderAccount($('account'));
+      $('exportButtons').hidden = !Session.canHost();
     }
 
-    function escapeHtml(str) {
-      if (!str) return '';
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    async function exportAll(kind, button) {
+      try {
+        await UI.busy(button, () => UI.download(`/api/leaderboard/export/${kind}`, `Groove_Leaderboard.${kind === 'csv' ? 'csv' : 'xls'}`));
+      } catch (err) {
+        UI.toast(err.message, 'error');
+      }
     }
+
+    document.querySelectorAll('.tab').forEach(t => { t.onclick = () => selectTab(t.dataset.tab); });
+    $('tournamentSelect').onchange = e => { tournamentId = e.target.value; loadTournament(); };
+    $('search').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadAllTime, 300); });
+    $('exportCsv').onclick = e => exportAll('csv', e.currentTarget);
+    $('exportExcel').onclick = e => exportAll('excel', e.currentTarget);
+
+    setInterval(() => {
+      if (document.hidden) return;
+      if (activeTab === 'panelTournament') loadTournament(true);
+      else if (!$('search').value) loadAllTime();
+    }, 15000);
+
+    Session.onChange(() => { renderChrome(); loadTournament(true); });
+    renderChrome();
+    loadTournaments();
+  })();
   </script>
 </body>
 </html>

@@ -7,11 +7,15 @@ namespace TriviaSync.Api.Hubs;
 public class QuizHub : Hub<IQuizClient>
 {
     private readonly IGameEngineService _gameEngine;
+    private readonly ITournamentService _tournaments;
+    private readonly IAuthService _auth;
     private readonly ILogger<QuizHub> _logger;
 
-    public QuizHub(IGameEngineService gameEngine, ILogger<QuizHub> logger)
+    public QuizHub(IGameEngineService gameEngine, ITournamentService tournaments, IAuthService auth, ILogger<QuizHub> logger)
     {
         _gameEngine = gameEngine;
+        _tournaments = tournaments;
+        _auth = auth;
         _logger = logger;
     }
 
@@ -22,8 +26,39 @@ public class QuizHub : Hub<IQuizClient>
 
         if (session == null)
         {
-            await Clients.Caller.ErrorNotification("Room PIN not found. Please verify the code.");
+            await Clients.Caller.ErrorNotification("No game is running with that PIN. Check the code on the host's screen.");
             return;
+        }
+
+        // Tournament games count toward standings, so players must be signed in. Joining with the
+        // PIN shown in the room enrolls them in the tournament, and their account name is used.
+        if (!string.IsNullOrEmpty(session.TournamentSessionId))
+        {
+            var tournamentSession = _tournaments.GetSession(session.TournamentSessionId);
+            var tournament = tournamentSession == null ? null : _tournaments.Get(tournamentSession.TournamentId);
+            var email = Context.User.UserEmail();
+            var user = email == null ? null : _auth.FindUser(email);
+            if (tournament == null)
+            {
+                await Clients.Caller.ErrorNotification("This game is no longer available.");
+                return;
+            }
+            if (user == null)
+            {
+                await Clients.Caller.SignInRequired(new { tournamentName = tournament.Name });
+                return;
+            }
+            if (tournament.HostEmail == user.Email)
+            {
+                await Clients.Caller.ErrorNotification("You're hosting this tournament, so you can't play in it.");
+                return;
+            }
+
+            _tournaments.EnsureMember(tournament.Id, user.Email, user.DisplayName);
+            fullName = user.DisplayName;
+            identifier = user.Email;
+            // Keep two members with the same display name from sharing a seat.
+            organizationId = user.Email;
         }
 
         var (success, message, player) = _gameEngine.JoinOrReconnectPlayer(
@@ -98,7 +133,11 @@ public class QuizHub : Hub<IQuizClient>
         }
     }
 
-    public async Task HostJoin(string pin)
+    /// <summary>
+    /// Resolves the session for a host-only action and checks the caller owns it (or is an admin).
+    /// Sends an error to the caller and returns null otherwise.
+    /// </summary>
+    private async Task<GameSession?> GetControlledSessionAsync(string? pin)
     {
         var cleanPin = pin?.Trim().ToUpperInvariant() ?? string.Empty;
         var session = _gameEngine.GetSession(cleanPin);
@@ -106,8 +145,27 @@ public class QuizHub : Hub<IQuizClient>
         if (session == null)
         {
             await Clients.Caller.ErrorNotification("Room PIN not found.");
+            return null;
+        }
+
+        if (!Context.User.CanControl(session))
+        {
+            _logger.LogWarning("Rejected host action on {Pin} from {User}", cleanPin, Context.User.UserEmail() ?? "anonymous");
+            await Clients.Caller.ErrorNotification("Only the host who created this game can control it.");
+            return null;
+        }
+
+        return session;
+    }
+
+    public async Task HostJoin(string pin)
+    {
+        var session = await GetControlledSessionAsync(pin);
+        if (session == null)
+        {
             return;
         }
+        var cleanPin = session.Pin;
 
         _gameEngine.RegisterHostConnection(cleanPin, Context.ConnectionId);
         await Groups.AddToGroupAsync(Context.ConnectionId, cleanPin);
@@ -126,6 +184,7 @@ public class QuizHub : Hub<IQuizClient>
             sessionNumber = session.SessionNumber,
             totalSessions = session.TotalSessions,
             sessionType = session.SessionType,
+            autoAdvance = session.AutoAdvance,
             allPlayers = session.Players.Values.Where(p => p.IsConnected).Select(p => new
             {
                 playerId = p.PlayerId,
@@ -134,12 +193,34 @@ public class QuizHub : Hub<IQuizClient>
                 rank = p.Rank
             }).ToList()
         });
+
+        // A host re-attaching mid-question needs the question back on screen.
+        if (session.State == GameState.QuestionActive && session.CurrentQuestionIndex >= 0 && session.CurrentQuestionIndex < session.Quiz.Questions.Count)
+        {
+            var q = session.Quiz.Questions[session.CurrentQuestionIndex];
+            await Clients.Caller.QuestionStarted(new
+            {
+                index = session.CurrentQuestionIndex,
+                questionNumber = session.CurrentQuestionIndex + 1,
+                totalQuestions = session.Quiz.Questions.Count,
+                text = q.Text,
+                choices = q.Choices,
+                timeLimit = session.RemainingSeconds,
+                points = q.Points,
+                answeredCount = session.CurrentRoundAnswers.Count
+            });
+        }
     }
 
     public async Task StartQuiz(string pin)
     {
-        var cleanPin = pin?.Trim().ToUpperInvariant() ?? string.Empty;
-        var started = await _gameEngine.StartQuizAsync(cleanPin);
+        var session = await GetControlledSessionAsync(pin);
+        if (session == null)
+        {
+            return;
+        }
+
+        var started = await _gameEngine.StartQuizAsync(session.Pin);
         if (!started)
         {
             await Clients.Caller.ErrorNotification("Unable to start quiz. Check room status and questions.");
@@ -159,17 +240,42 @@ public class QuizHub : Hub<IQuizClient>
 
     public async Task AdvanceQuestion(string pin)
     {
-        var cleanPin = pin?.Trim().ToUpperInvariant() ?? string.Empty;
-        var advanced = await _gameEngine.AdvanceQuestionAsync(cleanPin);
+        var session = await GetControlledSessionAsync(pin);
+        if (session == null)
+        {
+            return;
+        }
+
+        var advanced = await _gameEngine.AdvanceQuestionAsync(session.Pin);
         if (!advanced)
         {
             await Clients.Caller.ErrorNotification("Unable to advance question.");
         }
     }
 
+    public async Task EndQuestion(string pin)
+    {
+        var session = await GetControlledSessionAsync(pin);
+        if (session == null)
+        {
+            return;
+        }
+
+        if (!_gameEngine.EndQuestionEarly(session.Pin))
+        {
+            await Clients.Caller.ErrorNotification("There's no question running right now.");
+        }
+    }
+
     public async Task KickPlayer(string pin, string playerId)
     {
-        var cleanPin = pin?.Trim().ToUpperInvariant() ?? string.Empty;
+        var controlled = await GetControlledSessionAsync(pin);
+        if (controlled == null)
+        {
+            return;
+        }
+
+        var cleanPin = controlled.Pin;
         var (success, kickedConnId) = _gameEngine.KickPlayer(cleanPin, playerId);
 
         if (success)

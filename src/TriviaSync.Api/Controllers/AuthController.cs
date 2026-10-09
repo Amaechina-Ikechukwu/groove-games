@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using TriviaSync.Api.Models;
 using TriviaSync.Api.Services;
 
@@ -16,13 +18,13 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
 
+    [EnableRateLimiting("auth")]
     [HttpPost("login")]
     public ActionResult<AuthResponse> Login([FromBody] LoginRequest request)
     {
         try
         {
-            var response = _authService.Login(request.Email, request.Password, request.Portal, request.RequestedRole);
-            return Ok(response);
+            return Ok(_authService.Login(request.Email, request.Password));
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -30,13 +32,13 @@ public class AuthController : ControllerBase
         }
     }
 
+    [EnableRateLimiting("auth")]
     [HttpPost("register")]
     public ActionResult<AuthResponse> Register([FromBody] RegisterRequest request)
     {
         try
         {
-            var response = _authService.Register(request);
-            return Ok(response);
+            return Ok(_authService.Register(request));
         }
         catch (ArgumentException ex)
         {
@@ -51,32 +53,46 @@ public class AuthController : ControllerBase
     [HttpGet("me")]
     public ActionResult GetCurrentUser()
     {
-        if (User.Identity?.IsAuthenticated == true)
+        var email = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var user = email == null ? null : _authService.FindUser(email);
+        if (user == null)
         {
-            var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "";
-            var role = User.FindFirst("role")?.Value ?? User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Guest";
-            var name = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? email;
-            return Ok(new { isAuthenticated = true, email, role, name });
+            return Ok(new { isAuthenticated = false, role = "Guest" });
         }
-        return Ok(new { isAuthenticated = false, role = "Guest" });
+        return Ok(new { isAuthenticated = true, email = user.Email, role = user.Role, name = user.DisplayName });
     }
 
-    [Authorize(Roles = "Admin,SuperAdmin")]
+    /// <summary>Lets a signed-in player account explicitly opt in to hosting games.</summary>
+    [Authorize]
+    [HttpPost("become-host")]
+    public ActionResult<AuthResponse> BecomeHost()
+    {
+        var email = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (email == null)
+        {
+            return Unauthorized();
+        }
+        return Ok(_authService.BecomeHost(email));
+    }
+
+    [Authorize(Policy = "AdminOnly")]
     [HttpGet("users")]
     public ActionResult<List<UserDto>> GetUsers()
     {
         return Ok(_authService.GetAllUsers());
     }
 
-    [Authorize(Roles = "Admin,SuperAdmin")]
+    [Authorize(Policy = "AdminOnly")]
     [HttpPost("assign-role")]
     public ActionResult AssignRole([FromBody] RoleAssignRequest request)
     {
-        var success = _authService.AssignRole(request.Email, request.Role);
-        if (success)
+        return _authService.AssignRole(request.Email, request.Role) switch
         {
-            return Ok(new { message = $"Role '{request.Role}' assigned to {request.Email}." });
-        }
-        return NotFound(new { message = "User not found." });
+            RoleChangeResult.Ok => Ok(new { message = $"{request.Email} is now {request.Role}." }),
+            RoleChangeResult.NotFound => NotFound(new { message = "No account exists with that email. They need to sign up first." }),
+            RoleChangeResult.InvalidRole => BadRequest(new { message = "Role must be Player, Host, or Admin." }),
+            RoleChangeResult.WouldRemoveLastAdmin => Conflict(new { message = "You can't remove the last admin. Promote someone else first." }),
+            _ => StatusCode(500)
+        };
     }
 }

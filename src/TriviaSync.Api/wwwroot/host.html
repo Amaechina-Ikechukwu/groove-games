@@ -3,1025 +3,252 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Groove - Host Stadium Screen</title>
-  <link rel="stylesheet" href="/css/style.css?v=3.5">
+  <title>Host · Groove</title>
+  <link rel="stylesheet" href="/css/style.css?v=4.2">
   <style>
-    body {
-      background: var(--bg-dark);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+    .view { display: none; }
+    .view.is-active { display: block; animation: fade-in .2s ease-out; }
+    .setup-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+    @media (max-width: 900px) { .setup-grid { grid-template-columns: minmax(0, 1fr); } }
 
-    .stadium-container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 1.5rem 2rem 4rem 2rem;
-      flex: 1;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-    }
+    .running-list { display: flex; flex-direction: column; gap: 8px; }
+    .running-item { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); }
+    .running-item .pin { font-size: 1.125rem; }
+    .running-item .meta { flex: 1; min-width: 0; }
+    .running-item .meta div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-    .host-stage {
-      display: none;
-      flex-direction: column;
-      flex: 1;
-      animation: popIn 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
-    }
+    /* Game HUD */
+    .hud { position: sticky; top: 60px; z-index: 40; background: var(--bg); border-bottom: 1px solid var(--border); }
+    .hud-inner { display: flex; align-items: center; gap: 12px 16px; padding-top: 12px; padding-bottom: 12px; flex-wrap: wrap; }
+    .hud-pin { display: flex; align-items: baseline; gap: 10px; }
+    .hud-pin .pin { font-size: 1.75rem; }
+    .hud-title { min-width: 160px; flex: 1; }
+    .hud-title div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hud-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
-    .host-stage.active {
-      display: flex;
-    }
+    .game-stage { display: none; padding: 28px 0 48px; }
+    .game-stage.is-active { display: block; animation: fade-in .2s ease-out; }
 
-    /* Stadium HUD Bar */
-    .stadium-hud {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: var(--bg-surface);
-      border: 1px solid var(--border-cyber);
-      padding: 1rem 1.75rem;
-      border-radius: var(--radius-card);
-      margin-bottom: 1.5rem;
-      flex-wrap: wrap;
-      gap: 1rem;
-    }
+    .join-panel { display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: center; }
+    .join-panel .qr-box { justify-self: center; }
+    .join-panel .pin { font-size: clamp(3.5rem, 9vw, 6.5rem); }
+    .join-url { font-size: 1.25rem; font-weight: 600; }
+    @media (max-width: 760px) { .join-panel { grid-template-columns: 1fr; text-align: center; } .join-panel .row-wrap { justify-content: center; } }
 
-    .pin-display-huge {
-      background: var(--bg-surface-elevated);
-      border: 2px solid var(--neon-lime);
-      padding: 0.6rem 1.5rem;
-      border-radius: var(--radius-button);
-      font-family: var(--font-display);
-      font-size: 2.2rem;
-      font-weight: 900;
-      letter-spacing: 4px;
-      color: var(--neon-lime);
-      box-shadow: 0 0 25px var(--neon-lime-glow);
-      display: inline-flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
+    .players { display: flex; flex-wrap: wrap; gap: 8px; }
 
-    /* Lobby Grid of Players */
-    .lobby-players-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.85rem;
-      max-height: 480px;
-      overflow-y: auto;
-      padding: 1rem 0;
-    }
+    .q-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+    .q-text { font-size: clamp(1.5rem, 3.6vw, 2.75rem); text-transform: none; text-align: center; margin: 8px auto 32px; max-width: 30ch; }
+    .host-answers .answer { min-height: 110px; font-size: clamp(1.125rem, 2.2vw, 1.625rem); padding: 22px 24px; }
+    .host-answers .answer .shape { width: 34px; height: 34px; }
+    .timer-lg { width: 84px; height: 84px; }
+    .timer-lg span { font-size: 2rem; }
 
-    .player-avatar-chip {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-cyber);
-      padding: 0.6rem 1.25rem;
-      border-radius: var(--radius-button);
-      display: inline-flex;
-      align-items: center;
-      gap: 0.75rem;
-      font-family: var(--font-display);
-      font-weight: 800;
-      font-size: 1.1rem;
-      color: #fff;
-      animation: popIn 0.25s ease;
-      transition: all 0.2s ease;
-    }
-
-    .player-avatar-chip:hover {
-      border-color: var(--neon-lime);
-      box-shadow: 0 0 15px var(--neon-lime-glow);
-    }
-
-    .kick-btn {
-      color: var(--text-muted);
-      cursor: pointer;
-      font-size: 1rem;
-      margin-left: 0.25rem;
-    }
-
-    .kick-btn:hover {
-      color: var(--tile-red);
-    }
-
-    /* Active Question Stadium Display */
-    .question-headline-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-cyber);
-      border-radius: var(--radius-streamo);
-      padding: 2.5rem 2rem;
-      margin-bottom: 2rem;
-      text-align: center;
-      box-shadow: var(--shadow-cyber);
-      position: relative;
-    }
-
-    .question-headline-text {
-      font-family: var(--font-display);
-      font-size: 2.5rem;
-      font-weight: 900;
-      letter-spacing: -0.5px;
-      line-height: 1.25;
-      color: #FFFFFF;
-      max-width: 1050px;
-      margin: 0 auto;
-    }
-
-    .question-host-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      grid-gap: 1.25rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .host-choice-card {
-      min-height: 130px;
-      border-radius: var(--radius-card);
-      padding: 1.5rem 2rem;
-      display: flex;
-      align-items: center;
-      gap: 1.5rem;
-      color: #fff;
-      font-family: var(--font-display);
-      position: relative;
-      overflow: hidden;
-      box-shadow: var(--shadow-cyber);
-      transition: all 0.3s ease;
-    }
-
-    .host-choice-card .choice-glyph {
-      font-size: 3.2rem;
-      line-height: 1;
-      width: 50px;
-      text-align: center;
-    }
-
-    .host-choice-card .choice-text {
-      font-size: 1.6rem;
-      font-weight: 800;
-      line-height: 1.3;
-      flex: 1;
-    }
-
-    .host-choice-0 {
-      background: linear-gradient(135deg, #FF2A55 0%, #D81B43 100%);
-      border-radius: 28px 12px 12px 12px;
-      box-shadow: 0 8px 25px var(--tile-red-glow);
-    }
-    .host-choice-1 {
-      background: linear-gradient(135deg, #0088FF 0%, #0066CC 100%);
-      border-radius: 12px 28px 12px 12px;
-      box-shadow: 0 8px 25px var(--tile-blue-glow);
-    }
-    .host-choice-2 {
-      background: linear-gradient(135deg, #FFB800 0%, #D49A00 100%);
-      border-radius: 12px 12px 12px 28px;
-      box-shadow: 0 8px 25px var(--tile-yellow-glow);
-    }
-    .host-choice-3 {
-      background: linear-gradient(135deg, #00E676 0%, #00B359 100%);
-      border-radius: 12px 12px 28px 12px;
-      box-shadow: 0 8px 25px var(--tile-green-glow);
-    }
-
-    .host-choice-card.revealed-correct {
-      outline: 6px solid var(--neon-lime);
-      box-shadow: 0 0 50px var(--neon-lime);
-      transform: scale(1.03);
-      z-index: 5;
-    }
-
-    .host-choice-card.dimmed-wrong {
-      opacity: 0.25;
-      filter: grayscale(0.8);
-    }
-
-    /* Response Distribution Bars */
-    .distribution-container {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-around;
-      height: 220px;
-      gap: 2rem;
-      background: var(--bg-surface);
-      border: 1px solid var(--border-cyber);
-      border-radius: var(--radius-card);
-      padding: 1.5rem 2.5rem 0.5rem 2.5rem;
-      margin-bottom: 2rem;
-    }
-
-    .dist-col {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      height: 100%;
-      justify-content: flex-end;
-      flex: 1;
-    }
-
-    .dist-bar {
-      width: 100%;
-      max-width: 85px;
-      border-radius: 12px 12px 0 0;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      padding-top: 0.5rem;
-      font-family: var(--font-display);
-      font-size: 1.4rem;
-      font-weight: 900;
-      color: #fff;
-      transition: height 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-
-    .dist-label {
-      margin-top: 0.6rem;
-      font-family: var(--font-display);
-      font-size: 1.2rem;
-      font-weight: 900;
-    }
-
-    .round-rank-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-cyber);
-      border-radius: var(--radius-button);
-      padding: 1rem 1.5rem;
-      margin-bottom: 0.75rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      transition: all 0.2s ease;
-    }
-
-    .round-rank-card:hover {
-      border-color: var(--neon-lime);
-      background: #181d26;
-    }
-
-    .rank-number {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: var(--bg-surface-elevated);
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: var(--font-display);
-      font-size: 1.2rem;
-      font-weight: 900;
-    }
-
-    .rank-1 .rank-number {
-      background: var(--neon-lime);
-      color: #0A0C0F;
-      box-shadow: 0 0 15px var(--neon-lime-glow);
-    }
-
-    /* Modal for Cumulative Leaderboard */
-    .modal-overlay {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(10, 12, 15, 0.85);
-      backdrop-filter: blur(12px);
-      z-index: 200;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 1.5rem;
-    }
-
-    .modal-overlay.active {
-      display: flex;
-    }
-
-    .modal-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-cyber-active);
-      border-radius: var(--radius-card);
-      max-width: 950px;
-      width: 100%;
-      max-height: 85vh;
-      overflow-y: auto;
-      padding: 2.5rem;
-      box-shadow: var(--shadow-cyber);
-      animation: popIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-    }
-
-    @media (max-width: 768px) {
-      .stadium-container {
-        padding: 1rem 0.85rem 3rem 0.85rem;
-      }
-      #hostStageSelect .cyber-card {
-        padding: 1.5rem 1.15rem !important;
-        margin: 0.5rem auto !important;
-      }
-      .mode-toggle-group {
-        flex-direction: column !important;
-        gap: 0.75rem !important;
-      }
-      .modal-card {
-        padding: 1.5rem 1.15rem;
-        max-height: 92vh;
-      }
-    }
+    .t-card { display: block; text-decoration: none; color: inherit; transition: border-color .15s; }
+    .t-card:hover { border-color: var(--lime); }
+    .t-card h3 { overflow-wrap: anywhere; }
   </style>
 </head>
 <body>
+  <header class="topbar">
+    <div class="container container-wide topbar-inner">
+      <a href="/" class="brand" aria-label="Groove home" data-guard-nav>
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span class="brand-name">Groove</span>
+        <span class="brand-context">Host</span>
+      </a>
+      <nav class="nav" aria-label="Main">
+        <a href="/player.html" data-guard-nav>Join</a>
+        <a href="/tournaments.html" data-guard-nav>Tournaments</a>
+        <a href="/host.html" aria-current="page">Host</a>
+        <a href="/leaderboard.html" data-guard-nav>Standings</a>
+        <a href="/admin.html" data-admin-only hidden data-guard-nav>Admin</a>
+      </nav>
+      <div class="account" id="account"></div>
+    </div>
+  </header>
 
-  <!-- Top Navigation with Host Identity & Sign-In -->
-  <nav class="navbar">
-    <a href="/" class="brand-container">
-      <div class="brand-glyph">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0A0C0F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 22px; height: 22px; flex-shrink: 0;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-      </div>
-      <div class="brand-title">GROO<span class="accent">VE</span> STADIUM</div>
-    </a>
-    
-    <!-- Host Identity Badge -->
-    <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
-      <button type="button" onclick="openHostOnboarding()" class="hud-pill" style="cursor: pointer; font-size: 0.8rem; padding: 0.35rem 0.75rem; background: rgba(212, 255, 0, 0.1); border-color: var(--neon-lime); color: var(--neon-lime); display: flex; align-items: center; gap: 0.35rem;" title="Facilitator Guide & Onboarding">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-        <span>HOST GUIDE</span>
-      </button>
-      <div id="hostAuthBadge" style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem; background: var(--bg-surface-elevated); border: 1px solid var(--border-cyber); padding: 0.4rem 0.85rem; border-radius: 8px;" onclick="openHostAuthModal()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; flex-shrink: 0;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-        <span id="hostEmailDisplay" style="font-weight: 700; color: #fff; font-size: 0.85rem;">Sign In as Host</span>
-      </div>
-      <button id="hostLogoutBtn" onclick="hostLogout()" style="display: none; background: rgba(255, 42, 85, 0.1); border: 1px solid rgba(255, 42, 85, 0.3); color: var(--tile-red); cursor: pointer; align-items: center; gap: 0.35rem; font-family: var(--font-display); font-weight: 800; font-size: 0.75rem; text-transform: uppercase; padding: 0.35rem 0.65rem; border-radius: 6px;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-        LOGOUT
-      </button>
-
-      <div class="nav-pill-group">
-        <a href="/leaderboard.html" class="nav-pill">STANDINGS</a>
-        <a href="/player.html" class="nav-pill">BUZZER</a>
-        <a href="/host.html" class="nav-pill active">HOST SCREEN</a>
-        <a href="/admin.html" class="nav-pill">ADMIN DECK</a>
+  <!-- Not signed in -->
+  <main class="view page" id="viewGate">
+    <div class="container container-narrow">
+      <div class="card card-lg text-center">
+        <h1>Host a game</h1>
+        <p class="muted mt-2" style="max-width: 44ch; margin-inline: auto;">Sign in with a host account to start games, show the join code to the room, and run the questions.</p>
+        <div class="row-wrap mt-6" style="justify-content: center;">
+          <button type="button" class="btn btn-primary btn-lg" id="gateSignIn">Sign in</button>
+          <button type="button" class="btn btn-secondary btn-lg" id="gateSignUp">Create host account</button>
+        </div>
+        <p class="subtle mt-6">Just here to play? <a href="/player.html">Join a game</a> instead.</p>
       </div>
     </div>
-  </nav>
+  </main>
 
-  <div class="stadium-container">
-
-    <!-- Host Auth Required Banner (shown when not logged in) -->
-    <div id="hostAuthBanner" style="display: none; background: rgba(212, 255, 0, 0.08); border: 1.5px solid var(--neon-lime); border-radius: var(--radius-button); padding: 1rem 1.5rem; margin-bottom: 1.5rem; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
-      <div style="display: flex; align-items: center; gap: 0.75rem;">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-        <div>
-          <div style="font-family: var(--font-display); font-weight: 900; font-size: 1rem; color: #fff; text-transform: uppercase;">
-            HOST AUTHENTICATION REQUIRED
-          </div>
-          <div style="color: var(--text-secondary); font-size: 0.85rem;">
-            You must sign in or register with Host credentials to configure and launch game rooms.
-          </div>
+  <!-- Signed in with a player account -->
+  <main class="view page" id="viewUpgrade">
+    <div class="container container-narrow">
+      <div class="card card-lg">
+        <h1>Your account is set up for playing</h1>
+        <p class="muted mt-2">To start and run games, switch <strong id="upgradeEmail"></strong> to a host account. You can still join games as a player afterwards.</p>
+        <div class="row-wrap mt-6">
+          <button type="button" class="btn btn-primary" id="upgradeButton">Become a host</button>
+          <a class="btn btn-ghost" href="/player.html">Join a game instead</a>
         </div>
       </div>
-      <button onclick="openHostAuthModal()" class="btn-cyber btn-lime" style="padding: 0.6rem 1.25rem; font-size: 0.85rem;">
-        SIGN IN OR CREATE HOST ACCOUNT
-      </button>
     </div>
+  </main>
 
-    <!-- SELECT / LAUNCH ROOM STAGE (When no active game session) -->
-    <div id="hostStageSelect" class="host-stage active">
-      <div class="cyber-card" style="max-width: 820px; margin: 1.5rem auto; padding: 2.5rem; width: 100%;">
-        <h1 style="font-family: var(--font-display); font-size: 2.2rem; font-weight: 900; text-transform: uppercase; margin-bottom: 0.5rem;">
-          CREATE GAME ROOM & TOURNAMENTS
-        </h1>
-        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-          Create a standalone match or a multi-session tournament. Each session receives a unique access code (PIN).
-        </p>
-
-        <!-- New Host Onboarding Tour Trigger -->
-        <div style="background: rgba(0, 240, 255, 0.08); border: 1.5px solid rgba(0, 240, 255, 0.4); border-radius: var(--radius-button); padding: 0.95rem 1.25rem; margin-bottom: 1.75rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
-          <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <div style="width: 38px; height: 38px; background: rgba(0, 240, 255, 0.15); border: 1px solid var(--neon-cyan); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0;">
-              ⚡
-            </div>
-            <div>
-              <div style="color: var(--neon-cyan); font-family: var(--font-display); font-weight: 800; font-size: 0.95rem; text-transform: uppercase;">NEW TO GROOVE STADIUM?</div>
-              <div style="color: var(--text-secondary); font-size: 0.82rem;">Take the 3-step facilitator tour: Host accounts, PIN/QR generation, and live stadium directing.</div>
-            </div>
+  <!-- Setup -->
+  <main class="view page" id="viewSetup">
+    <div class="container container-wide">
+      <section class="mb-8">
+        <div class="spread mb-4">
+          <div>
+            <h1 id="tournamentsHeading">Your tournaments</h1>
+            <p class="muted mt-1" id="tournamentsSub">Players join with a code. Add live games or self-paced quizzes with a deadline.</p>
           </div>
-          <button type="button" onclick="openHostOnboarding()" class="btn-cyber btn-dark" style="border-color: var(--neon-cyan); color: var(--neon-cyan); font-size: 0.8rem; padding: 0.5rem 1rem;">
-            OPEN HOST ONBOARDING →
-          </button>
+          <button type="button" class="btn btn-primary" id="newTournament"><span data-icon="plus"></span>New tournament</button>
         </div>
+        <div class="grid-auto" id="tournamentList"><p class="subtle">Loading…</p></div>
+      </section>
 
-        <!-- Mode Toggle: Single vs Multi-Session -->
-        <div class="mode-toggle-group" style="display: flex; gap: 1rem; margin-bottom: 1.75rem;">
-          <label style="flex: 1; padding: 1.25rem; background: var(--bg-surface-elevated); border: 2px solid var(--neon-lime); border-radius: var(--radius-button); cursor: pointer; display: flex; align-items: center; gap: 0.75rem;">
-            <input type="radio" name="sessionMode" id="modeSingle" value="Single" checked onchange="toggleSessionMode()" style="accent-color: var(--neon-lime); transform: scale(1.3);">
-            <div>
-              <div style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 900; text-transform: uppercase;">
-                SINGLE SESSION MATCH
-              </div>
-              <div style="font-size: 0.85rem; color: var(--text-muted);">
-                1 Game session with a unique 6-digit access code
-              </div>
-            </div>
+      <div class="setup-grid">
+        <form class="card stack" id="setupForm" novalidate>
+          <div>
+            <h2 style="font-size: 1.125rem;">Quick game</h2>
+            <p class="muted mt-1" style="font-size: 0.9375rem;">A one-off live game. Anyone with the PIN can play without an account. Scores go to the all-time leaderboard, not a tournament.</p>
+          </div>
+          <div class="field">
+            <label class="label" for="quizSelect">Quiz</label>
+            <select class="select" id="quizSelect" required><option value="">Loading quizzes…</option></select>
+            <span class="hint" id="quizHint"></span>
+          </div>
+
+          <label class="check">
+            <input type="checkbox" id="autoAdvance">
+            <span>Move on automatically<br><span class="subtle">After each question's standings, the next question starts after 5 seconds.</span></span>
           </label>
 
-          <label style="flex: 1; padding: 1.25rem; background: var(--bg-surface-elevated); border: 2px solid var(--border-cyber); border-radius: var(--radius-button); cursor: pointer; display: flex; align-items: center; gap: 0.75rem;">
-            <input type="radio" name="sessionMode" id="modeMulti" value="MultiSession" onchange="toggleSessionMode()" style="accent-color: var(--neon-lime); transform: scale(1.3);">
-            <div>
-              <div style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 900; text-transform: uppercase;">
-                MULTI-SESSION TOURNAMENT
-              </div>
-              <div style="font-size: 0.85rem; color: var(--text-muted);">
-                Multiple linked sessions with distinct access codes
-              </div>
-            </div>
-          </label>
-        </div>
-
-        <!-- Tournament Details -->
-        <div id="multiSessionFields" style="display: none; margin-bottom: 1.5rem; padding: 1.25rem; background: rgba(212, 255, 0, 0.05); border: 1px solid var(--border-cyber-active); border-radius: var(--radius-button);">
-          <div style="margin-bottom: 1rem;">
-            <label style="font-family: var(--font-display); font-weight: 800; font-size: 0.9rem; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">
-              TOURNAMENT / EVENT NAME
-            </label>
-            <input type="text" id="tournamentNameInput" class="form-input-cyber" placeholder="e.g. Friday Tech Arena 2026" value="Friday Games Tournament">
+          <div class="card-footer" style="margin-top: 8px;">
+            <button type="submit" class="btn btn-primary btn-lg" id="createButton">Start quick game</button>
           </div>
+        </form>
+
+        <section class="card">
+          <div class="spread mb-4">
+            <h2 style="font-size: 1.125rem;">Live games running</h2>
+            <button type="button" class="btn btn-ghost btn-sm" id="refreshRunning"><span data-icon="refresh"></span>Refresh</button>
+          </div>
+          <div class="running-list" id="runningList"><p class="subtle">Loading…</p></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <!-- Live game -->
+  <div class="view" id="viewGame">
+    <div class="hud">
+      <div class="container container-wide hud-inner">
+        <div class="hud-pin">
+          <span class="subtle">PIN</span>
+          <span class="pin" id="hudPin">------</span>
+        </div>
+        <button type="button" class="btn btn-ghost btn-icon" id="hudQr" aria-label="Show QR code" title="Show QR code"><span data-icon="qr"></span></button>
+        <div class="hud-title">
+          <div style="font-weight: 600;" id="hudTitle"></div>
+          <div class="subtle" id="hudSub"></div>
+        </div>
+        <span class="badge" id="hudPlayers"><span data-icon="users"></span><span>0 players</span></span>
+        <div class="hud-actions">
+          <button type="button" class="btn btn-danger-ghost" id="hudEnd">End game</button>
+          <button type="button" class="btn btn-primary" id="hudPrimary">Start game</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="container container-wide">
+      <!-- Lobby -->
+      <section class="game-stage" id="stageLobby">
+        <div class="card card-lg card-lime join-panel">
           <div>
-            <label style="font-family: var(--font-display); font-weight: 800; font-size: 0.9rem; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">
-              NUMBER OF SESSIONS IN TOURNAMENT
-            </label>
-            <select id="multiSessionCountSelect" class="form-input-cyber">
-              <option value="1">1 Session (Quick Tournament)</option>
-              <option value="2">2 Sessions</option>
-              <option value="3" selected>3 Sessions</option>
-              <option value="4">4 Sessions</option>
-              <option value="5">5 Sessions</option>
-              <option value="6">6 Sessions</option>
-              <option value="8">8 Sessions</option>
-              <option value="10">10 Sessions</option>
-            </select>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem; line-height: 1.4;">
-              Note: Each session is an independent game with its own PIN code. Questions within sessions may or may not include rounds.
-            </p>
-          </div>
-        </div>
-
-        <!-- Quiz Selection -->
-        <div style="margin-bottom: 1.5rem;">
-          <label style="font-family: var(--font-display); font-weight: 800; font-size: 0.9rem; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">
-            SELECT QUIZ QUESTION BANK
-          </label>
-          <select id="quizSelectDropdown" class="form-input-cyber">
-            <option value="">Loading saved quiz banks...</option>
-          </select>
-        </div>
-
-        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 2rem;">
-          <input type="checkbox" id="autoAdvanceCheck" style="width: 20px; height: 20px; accent-color: var(--neon-lime);">
-          <label for="autoAdvanceCheck" style="font-weight: 600; cursor: pointer;">Enable Auto-Advance Timer (Automatic Question Transitions)</label>
-        </div>
-
-        <button onclick="launchNewSession()" class="btn-cyber btn-lime btn-lg" style="width: 100%; font-size: 1.2rem; padding: 1.2rem; display: flex; align-items: center; justify-content: center; gap: 0.6rem;">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width: 22px; height: 22px; flex-shrink: 0;"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path></svg>
-          <span>CREATE GAME ROOM & GENERATE ACCESS CODES</span>
-        </button>
-
-        <!-- Or Re-connect to existing PIN -->
-        <div style="margin-top: 2.5rem; padding-top: 1.75rem; border-top: 1px solid var(--border-cyber); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-          <div>
-            <div style="font-family: var(--font-display); font-weight: 800; font-size: 0.95rem; text-transform: uppercase; color: var(--text-muted);">
-              RE-ATTACH TO RUNNING ROOM
-            </div>
-            <div style="font-size: 0.85rem; color: var(--text-secondary);">Enter 6-digit access code</div>
-          </div>
-          <div style="display: flex; gap: 0.75rem;">
-            <input type="text" id="existingPinInput" class="form-input-cyber" placeholder="6-DIGIT PIN" maxlength="6" style="width: 150px; text-align: center; font-family: var(--font-display); font-weight: 900; letter-spacing: 2px;">
-            <button onclick="connectExistingPin()" class="btn-cyber btn-dark">ATTACH</button>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- MULTI-SESSION TOURNAMENT CODES DECK (Shows all session access codes) -->
-    <div id="tournamentCodesDeck" style="display: none; margin-bottom: 2rem;">
-      <div class="cyber-card" style="padding: 2rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
-          <div>
-            <h2 id="deckTournamentName" style="font-family: var(--font-display); font-size: 1.8rem; font-weight: 900; text-transform: uppercase;">
-              GROOVE ARENA TOURNAMENT
-            </h2>
-          </div>
-          <button onclick="viewCumulativeLeaderboard()" class="btn-cyber btn-lime" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path><path d="M6 4h12v7a6 6 0 0 1-12 0V4z"></path></svg>
-            <span>VIEW TOURNAMENT LEADERBOARD</span>
-          </button>
-        </div>
-
-        <p style="color: var(--text-secondary); margin-bottom: 1.25rem;">
-          Distribute these access codes to your contenders. Each session links to the cumulative tournament leaderboard.
-        </p>
-
-        <div id="tournamentSessionsList" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem;">
-          <!-- Dynamically populated session code cards -->
-        </div>
-      </div>
-    </div>
-
-    <!-- MAIN HOST GAME CONTAINER (Active Match Presentation) -->
-    <div id="hostGameContainer" style="display: none; flex-direction: column; flex: 1;">
-
-      <!-- Stadium Top HUD -->
-      <div class="stadium-hud">
-        <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
-          <div class="pin-display-huge">
-            <span style="font-size: 1.1rem; color: var(--text-muted);">ACCESS CODE:</span>
-            <span id="stadiumPinValue">------</span>
-          </div>
-          <button type="button" onclick="openHudQrModal()" class="stadium-qr-badge" title="Show Contender QR Code">
-            <div id="hudMiniQrContainer" class="stadium-mini-qr"></div>
-            <div>
-              <div style="font-size: 0.65rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; line-height: 1;">SCAN CODE</div>
-              <div style="font-family: var(--font-display); font-size: 0.85rem; font-weight: 900; color: var(--neon-lime); line-height: 1.2;">QR CODE</div>
-            </div>
-          </button>
-          <div>
-            <div id="stadiumQuizTitle" style="font-family: var(--font-display); font-size: 1.35rem; font-weight: 900; text-transform: uppercase;">QUIZ TITLE</div>
-            <div style="color: var(--text-secondary); font-size: 0.9rem;">
-              Contenders enter code at <strong style="color: #fff;">groove.live</strong>
+            <p class="eyebrow">Join at <span class="join-url" id="joinUrl" style="text-transform: none; letter-spacing: 0;"></span> with PIN</p>
+            <div class="pin mt-2" id="lobbyPin">------</div>
+            <div class="row-wrap mt-4">
+              <button type="button" class="btn btn-dark btn-sm" id="copyLink"><span data-icon="link"></span>Copy join link</button>
             </div>
           </div>
+          <div class="qr-box" id="lobbyQr" aria-label="QR code to join"></div>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
-          <button onclick="viewCumulativeLeaderboard()" class="btn-cyber btn-dark" style="font-size: 0.9rem; padding: 0.65rem 1.25rem; display: inline-flex; align-items: center; gap: 0.5rem;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; flex-shrink: 0;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path><path d="M6 4h12v7a6 6 0 0 1-12 0V4z"></path></svg>
-            <span>ALL SESSIONS STANDINGS</span>
-          </button>
-          <div class="hud-pill score-pill" style="font-size: 0.95rem; padding: 0.5rem 1.1rem; display: inline-flex; align-items: center; gap: 0.4rem;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; flex-shrink: 0;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-            <span><span id="stadiumPlayerCount">0</span> CONTENDERS</span>
-          </div>
-          <button id="btnHostAction" class="btn-cyber btn-lime">
-            ACTION
-          </button>
+        <div class="spread mt-8 mb-4">
+          <h2 style="font-size: 1.25rem;">Players <span class="muted num" id="lobbyCount">0</span></h2>
+          <span class="subtle">Click × to remove someone.</span>
         </div>
-      </div>
+        <div class="players" id="lobbyPlayers"></div>
+      </section>
 
-      <!-- 1. LOBBY STAGE -->
-      <div id="hostStageLobby" class="host-stage">
-        <div class="cyber-card" style="padding: 2.5rem; flex: 1; display: flex; flex-direction: column;">
-          
-          <!-- Prominent Join Gateway: Access Code alongside Scannable QR Code -->
-          <div class="lobby-join-hero">
-            <div class="lobby-access-details">
-              <div style="display: flex; align-items: center; gap: 0.75rem;">
-                <span class="hud-pill score-pill" style="font-size: 0.85rem; padding: 0.35rem 0.85rem;">SESSION LIVE</span>
-                <span style="font-size: 0.9rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">HOW TO JOIN:</span>
-              </div>
-              <h2 style="font-family: var(--font-display); font-size: 2.2rem; font-weight: 900; text-transform: uppercase; margin: 0;">
-                SCAN QR CODE OR ENTER ACCESS PIN
-              </h2>
-              <div class="lobby-pin-banner">
-                <div>
-                  <div style="font-family: var(--font-display); font-size: 0.85rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">
-                    CONTENDER ACCESS PIN
-                  </div>
-                  <div id="lobbyPinValue" class="lobby-pin-value">------</div>
-                </div>
-                <div style="border-left: 1px solid var(--border-cyber); padding-left: 1.5rem; display: flex; flex-direction: column; gap: 0.35rem;">
-                  <div style="font-size: 0.85rem; color: var(--text-secondary);">Direct Contender Link:</div>
-                  <div id="lobbyDirectLink" style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; color: #FFFFFF; word-break: break-all;">
-                    groove.live/player.html
-                  </div>
-                  <button type="button" onclick="copyLobbyJoinUrl()" class="btn-cyber btn-dark" style="align-self: flex-start; padding: 0.35rem 0.85rem; font-size: 0.8rem; margin-top: 0.25rem;">
-                    COPY LINK
-                  </button>
-                </div>
-              </div>
-            </div>
+      <!-- Countdown -->
+      <section class="game-stage text-center" id="stageCountdown" aria-live="polite">
+        <p class="muted" style="font-size: 1.25rem; margin-top: 48px;" id="countdownLabel"></p>
+        <div class="countdown-number" id="countdownNumber">3</div>
+      </section>
 
-            <!-- Scannable QR Code Card alongside Access Code -->
-            <div class="lobby-qr-card">
-              <div id="lobbyQrContainer"></div>
-              <div class="lobby-qr-caption">SCAN TO JOIN ARENA</div>
-            </div>
-          </div>
+      <!-- Question -->
+      <section class="game-stage" id="stageQuestion">
+        <div class="q-head">
+          <span class="badge" id="questionLabel"></span>
+          <div class="timer timer-lg" id="questionTimer" role="timer"><span>20</span></div>
+          <span class="badge num" id="answeredCount">0 of 0 answered</span>
+        </div>
+        <h1 class="q-text" id="questionText"></h1>
+        <div class="answer-grid host-answers" id="questionAnswers"></div>
+      </section>
 
-          <!-- Contenders waiting roster -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-cyber); padding-bottom: 0.75rem;">
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
-              <h3 style="font-family: var(--font-display); font-size: 1.35rem; font-weight: 900; text-transform: uppercase; margin: 0;">
-                CONTENDERS IN ROOM
-              </h3>
-              <span id="lobbyPlayerBadge" class="hud-pill score-pill">0 CONTENDERS</span>
-            </div>
-            <div style="color: var(--text-muted); font-size: 0.85rem;">
-              Click '✕' next to any contender to remove them
+      <!-- Reveal -->
+      <section class="game-stage" id="stageReveal">
+        <div class="q-head"><span class="badge" id="revealLabel"></span><span class="badge num" id="revealStats"></span></div>
+        <h1 class="q-text" style="margin-bottom: 24px;" id="revealText"></h1>
+        <div class="answer-grid host-answers" id="revealAnswers"></div>
+      </section>
+
+      <!-- Round standings -->
+      <section class="game-stage" id="stageStandings">
+        <div class="spread mb-6">
+          <h1>Standings</h1>
+          <span class="badge" id="standingsLabel"></span>
+        </div>
+        <div class="standings" id="standingsList"></div>
+      </section>
+
+      <!-- Podium -->
+      <section class="game-stage" id="stagePodium">
+        <h1 class="text-center mb-6">Final results</h1>
+        <div class="podium mb-6" id="podium"></div>
+        <div class="card" style="max-width: 720px; margin: 0 auto;">
+          <div class="spread mb-2">
+            <h2 style="font-size: 1.125rem;">Everyone</h2>
+            <div class="row-wrap">
+              <button type="button" class="btn btn-secondary btn-sm" id="exportCsv"><span data-icon="download"></span>CSV</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="exportExcel"><span data-icon="download"></span>Excel</button>
             </div>
           </div>
-
-          <div class="lobby-players-grid" id="lobbyContendersGrid">
-            <!-- Dynamic contender avatar badges -->
-          </div>
-
-          <div style="margin-top: auto; padding-top: 2rem; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-cyber); flex-wrap: wrap; gap: 1rem;">
-            <div style="color: var(--text-muted); font-size: 0.95rem;">
-              Waiting for contenders to enter code or scan QR above.
-            </div>
-            <button onclick="startQuizFromHost()" class="btn-cyber btn-lime btn-lg" style="font-size: 1.3rem; padding: 1.2rem 3rem;">
-              START ARENA SHOWDOWN (Q1)
-            </button>
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>#</th><th>Player</th><th class="right">Score</th></tr></thead>
+              <tbody id="finalTable"></tbody>
+            </table>
           </div>
         </div>
-      </div>
-
-      <!-- 2. COUNTDOWN STAGE -->
-      <div id="hostStageCountdown" class="host-stage">
-        <div class="cyber-card" style="padding: 4rem; text-align: center; margin: auto; max-width: 700px; width: 100%;">
-          <h2 style="font-family: var(--font-display); font-size: 2.8rem; font-weight: 900; text-transform: uppercase;">GET READY!</h2>
-          <div id="hostCountdownDigit" style="font-family: var(--font-display); font-size: 8rem; font-weight: 900; color: var(--neon-lime); text-shadow: 0 0 45px var(--neon-lime-glow); margin: 1rem 0;">3</div>
-          <div id="hostCountdownSubtext" class="hud-pill" style="margin: 0 auto; font-size: 1.2rem; padding: 0.5rem 1.5rem;">Question 1</div>
+        <div class="row-wrap mt-6" style="justify-content: center;">
+          <button type="button" class="btn btn-primary" id="afterGame">Back to games</button>
         </div>
-      </div>
-
-      <!-- 3. ACTIVE QUESTION STAGE -->
-      <div id="hostStageQuestion" class="host-stage">
-        <div class="question-headline-card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <span id="hostQuestionTracker" class="hud-pill">QUESTION 1 OF 5</span>
-            <div id="hostTimerRing" class="cyber-timer-ring">20</div>
-            <span id="hostAnswersReceivedBadge" class="hud-pill score-pill">0 / 0 ANSWERED</span>
-          </div>
-
-          <h1 id="hostQuestionText" class="question-headline-text">
-            Loading question text...
-          </h1>
-        </div>
-
-        <div class="question-host-grid" id="hostChoicesContainer">
-          <!-- 4 choice cards -->
-        </div>
-      </div>
-
-      <!-- 4. ROUND COMPLETED & ANSWER REVEAL STAGE -->
-      <div id="hostStageReveal" class="host-stage">
-        <div class="question-headline-card" style="padding: 1.75rem;">
-          <h2 id="revealQuestionText" class="question-headline-text" style="font-size: 2rem;">
-            Question text
-          </h2>
-        </div>
-
-        <div class="question-host-grid" id="revealChoicesContainer">
-          <!-- Dynamically highlighted choices -->
-        </div>
-
-        <div class="distribution-container" id="distributionBars">
-          <!-- Dynamically animated stat bars -->
-        </div>
-      </div>
-
-      <!-- 5. ROUND LEADERBOARD STAGE -->
-      <div id="hostStageLeaderboard" class="host-stage">
-        <div class="cyber-card" style="padding: 2rem; flex: 1; display: flex; flex-direction: column;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
-            <h2 style="font-family: var(--font-display); font-size: 2rem; font-weight: 900; text-transform: uppercase;">
-              CURRENT SESSION STANDINGS
-            </h2>
-            <div style="display: flex; gap: 1rem;">
-              <button onclick="viewCumulativeLeaderboard()" class="btn-cyber btn-dark" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; flex-shrink: 0;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path><path d="M6 4h12v7a6 6 0 0 1-12 0V4z"></path></svg>
-                <span>TOURNAMENT CUMULATIVE</span>
-              </button>
-              <button onclick="advanceNextQuestionFromHost()" class="btn-cyber btn-lime" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-                <span>NEXT QUESTION</span>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; flex-shrink: 0;"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-              </button>
-            </div>
-          </div>
-
-          <div id="hostLeaderboardList" style="flex: 1; overflow-y: auto;">
-            <!-- Contender ranks -->
-          </div>
-        </div>
-      </div>
-
-      <!-- 6. FINAL PODIUM & SUMMARY STAGE -->
-      <div id="hostStagePodium" class="host-stage">
-        <div class="cyber-card" style="padding: 2.5rem; text-align: center; flex: 1; display: flex; flex-direction: column;">
-          <h1 style="font-family: var(--font-display); font-size: 3.2rem; font-weight: 900; text-transform: uppercase; margin-bottom: 0.5rem;">
-            SESSION CHAMPIONS PODIUM
-          </h1>
-
-          <div class="cyber-podium">
-            <!-- 2nd Place -->
-            <div class="podium-pillar podium-rank-2">
-              <div id="podiumName2" style="font-family: var(--font-display); font-size: 1.35rem; font-weight: 800; margin-bottom: 0.25rem;">2nd Contender</div>
-              <div id="podiumScore2" style="font-family: var(--font-display); font-weight: 800; color: #E0E6ED; margin-bottom: 0.75rem;">0 PTS</div>
-              <div class="podium-box">2</div>
-            </div>
-
-            <!-- 1st Place (Highest) -->
-            <div class="podium-pillar podium-rank-1">
-              <div style="display: flex; justify-content: center; margin-bottom: 0.25rem;">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 32px; height: 32px;"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"></path></svg>
-              </div>
-              <div id="podiumName1" style="font-family: var(--font-display); font-size: 1.6rem; font-weight: 900; margin-bottom: 0.25rem; color: var(--neon-lime);">CHAMPION</div>
-              <div id="podiumScore1" style="font-family: var(--font-display); font-weight: 900; color: var(--neon-lime); margin-bottom: 0.75rem;">0 PTS</div>
-              <div class="podium-box">1</div>
-            </div>
-
-            <!-- 3rd Place -->
-            <div class="podium-pillar podium-rank-3">
-              <div id="podiumName3" style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; margin-bottom: 0.25rem;">3rd Contender</div>
-              <div id="podiumScore3" style="font-family: var(--font-display); font-weight: 800; color: #FF9F43; margin-bottom: 0.75rem;">0 PTS</div>
-              <div class="podium-box">3</div>
-            </div>
-          </div>
-
-          <div style="margin-top: auto; padding-top: 1.5rem; display: flex; justify-content: center; gap: 1rem; border-top: 1px solid var(--border-cyber); flex-wrap: wrap;">
-            <button onclick="viewCumulativeLeaderboard()" class="btn-cyber btn-lime" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path><path d="M6 4h12v7a6 6 0 0 1-12 0V4z"></path></svg>
-              <span>ALL SESSIONS & GAMES LEADERBOARD</span>
-            </button>
-            <a id="btnExportCsv" href="#" class="btn-cyber btn-dark" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; flex-shrink: 0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-              <span>EXPORT MATCH CSV</span>
-            </a>
-            <a id="btnExportExcel" href="#" class="btn-cyber btn-dark" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; flex-shrink: 0;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-              <span>EXPORT MATCH EXCEL</span>
-            </a>
-            <button onclick="returnToLobbyOrNextSession()" class="btn-cyber btn-dark">
-              RETURN TO TOURNAMENT DECK
-            </button>
-          </div>
-        </div>
-      </div>
-
-    </div>
-
-  </div>
-
-  <!-- MODAL: CUMULATIVE LEADERBOARD ACROSS ALL SESSIONS & GAMES -->
-  <div id="cumulativeLeaderboardModal" class="modal-overlay" onclick="closeCumulativeModal(event)">
-    <div class="modal-card" onclick="event.stopPropagation()">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-        <div>
-          <h2 style="font-family: var(--font-display); font-size: 2rem; font-weight: 900; text-transform: uppercase;">
-            STANDINGS ACROSS ALL SESSIONS & GAMES
-          </h2>
-        </div>
-        <button onclick="closeCumulativeModal()" class="btn-cyber btn-dark" style="font-size: 1.2rem; padding: 0.5rem 1rem;">✕</button>
-      </div>
-
-      <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
-        <span style="color: var(--text-secondary); font-size: 0.95rem;">
-          Showing aggregate cumulative points and statistics for players who competed under Host: <strong id="modalHostBadge" style="color: var(--neon-lime);">All Hosts</strong>
-        </span>
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-          <a href="/leaderboard.html" target="_blank" class="btn-cyber btn-lime" style="font-size: 0.85rem; padding: 0.5rem 1rem; display: inline-flex; align-items: center; gap: 0.4rem;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-            PUBLIC STANDINGS PAGE
-          </a>
-          <a id="btnExportModalCsv" href="/api/leaderboard/export/csv" class="btn-cyber btn-dark" style="font-size: 0.85rem; padding: 0.5rem 1rem;">Export CSV</a>
-          <a id="btnExportModalExcel" href="/api/leaderboard/export/excel" class="btn-cyber btn-dark" style="font-size: 0.85rem; padding: 0.5rem 1rem;">Export Excel</a>
-        </div>
-      </div>
-
-      <div class="table-responsive">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Contender Name</th>
-              <th>Total Cumulative Points</th>
-              <th>Sessions Played</th>
-              <th>Accuracy %</th>
-              <th>Highest Streak</th>
-              <th>Last Active</th>
-            </tr>
-          </thead>
-          <tbody id="cumulativeModalTableBody">
-            <!-- Cumulative rows -->
-          </tbody>
-        </table>
-      </div>
+      </section>
     </div>
   </div>
 
-  <!-- MODAL: HOST SIGN IN & REGISTRATION -->
-  <div id="hostAuthModal" class="modal-overlay" onclick="closeHostAuthModal(event)">
-    <div class="modal-card" style="max-width: 480px;" onclick="event.stopPropagation()">
-      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
-        <div style="width: 42px; height: 42px; background: rgba(212, 255, 0, 0.1); border: 1.5px solid var(--neon-lime); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-        </div>
-        <h2 style="font-family: var(--font-display); font-size: 1.7rem; font-weight: 900; text-transform: uppercase; margin: 0;">
-          FACILITATOR ACCESS
-        </h2>
-      </div>
-      <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.25rem;">
-        Sign in or create a Host account to launch game rooms and direct tournament sessions.
-      </p>
-
-      <!-- Toggle Sign In vs Register Tabs -->
-      <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; background: var(--bg-surface-elevated); padding: 0.3rem; border-radius: var(--radius-button); border: 1px solid var(--border-cyber);">
-        <button type="button" id="tabHostLoginBtn" onclick="switchHostAuthTab('login')" class="tab-btn active" style="flex: 1; padding: 0.55rem; font-size: 0.85rem; justify-content: center;">
-          SIGN IN
-        </button>
-        <button type="button" id="tabHostRegisterBtn" onclick="switchHostAuthTab('register')" class="tab-btn" style="flex: 1; padding: 0.55rem; font-size: 0.85rem; justify-content: center;">
-          CREATE HOST ACCOUNT
-        </button>
-      </div>
-
-      <div id="hostAuthAlert" style="display: none; margin-bottom: 1rem; padding: 0.75rem 1rem; border-radius: var(--radius-button); font-weight: 700; font-size: 0.85rem; background: rgba(255, 42, 85, 0.15); border: 1px solid var(--tile-red); color: var(--tile-red);"></div>
-
-      <!-- HOST SIGN IN FORM -->
-      <form id="hostLoginForm" onsubmit="handleHostLogin(event)">
-        <div style="margin-bottom: 1rem;">
-          <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.35rem;">Host Email</label>
-          <input type="email" id="modalHostEmailInput" class="form-input-cyber" placeholder="Enter your email" required>
-        </div>
-        <div style="margin-bottom: 1.25rem;">
-          <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.35rem;">Password</label>
-          <input type="password" id="modalHostPasswordInput" class="form-input-cyber" placeholder="Password" required>
-        </div>
-
-        <div style="margin-bottom: 1.25rem; padding: 0.75rem; background: var(--bg-surface-elevated); border-radius: 8px; border: 1px solid var(--border-cyber); font-size: 0.8rem; color: var(--text-muted);">
-          <strong style="color: var(--text-secondary); display: block; margin-bottom: 0.35rem;">QUICK DEMO CREDENTIALS:</strong>
-          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            <button type="button" onclick="setHostCreds('host@groove.live', 'host123')" class="hud-pill" style="cursor: pointer; font-size: 0.75rem;">Host: host@groove.live</button>
-            <button type="button" onclick="setHostCreds('admin@groove.live', 'admin123')" class="hud-pill" style="cursor: pointer; font-size: 0.75rem;">Admin: admin@groove.live</button>
-          </div>
-        </div>
-
-        <div style="display: flex; gap: 0.75rem;">
-          <button type="submit" class="btn-cyber btn-lime" style="flex: 1;">SIGN IN & ENTER ARENA</button>
-          <button type="button" onclick="closeHostAuthModal()" class="btn-cyber btn-dark">CANCEL</button>
-        </div>
-      </form>
-
-      <!-- HOST REGISTER FORM -->
-      <form id="hostRegisterForm" onsubmit="handleHostRegister(event)" style="display: none;">
-        <div style="margin-bottom: 0.85rem;">
-          <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.35rem;">Full Name / Facilitator Title</label>
-          <input type="text" id="modalHostRegisterName" class="form-input-cyber" placeholder="e.g. John Doe / Quizmaster" required>
-        </div>
-        <div style="margin-bottom: 0.85rem;">
-          <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.35rem;">Host Email Address</label>
-          <input type="email" id="modalHostRegisterEmail" class="form-input-cyber" placeholder="e.g. you@example.com" required>
-        </div>
-        <div style="margin-bottom: 1.25rem;">
-          <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.35rem;">Password</label>
-          <input type="password" id="modalHostRegisterPassword" class="form-input-cyber" placeholder="Create Password (min 4 chars)" required>
-        </div>
-
-        <div style="display: flex; gap: 0.75rem;">
-          <button type="submit" class="btn-cyber btn-lime" style="flex: 1;">CREATE HOST ACCOUNT</button>
-          <button type="button" onclick="closeHostAuthModal()" class="btn-cyber btn-dark">CANCEL</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- MODAL: HOST INTERACTIVE ONBOARDING -->
-  <div id="hostOnboardingModal" class="onboarding-overlay" onclick="closeHostOnboarding(event)">
-    <div class="onboarding-card" onclick="event.stopPropagation()">
-      <div class="onboarding-header">
-        <span id="hostStepPill" class="onboarding-step-pill">STEP 1 OF 3 • FACILITATOR OVERVIEW</span>
-        <div class="onboarding-stepper-dots">
-          <div class="stepper-dot active" id="hDot1"></div>
-          <div class="stepper-dot" id="hDot2"></div>
-          <div class="stepper-dot" id="hDot3"></div>
-        </div>
-      </div>
-
-      <!-- Slide 1: Facilitator Identity & Access -->
-      <div class="onboarding-step-slide active" id="hSlide1">
-        <div style="width: 52px; height: 52px; background: rgba(212, 255, 0, 0.1); border: 2px solid var(--neon-lime); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-        </div>
-        <h2 style="font-family: var(--font-display); font-size: 1.6rem; font-weight: 900; text-transform: uppercase; margin-bottom: 0.5rem;">
-          DIRECT THE <span style="color: var(--neon-lime);">STADIUM</span>
-        </h2>
-        <p style="color: var(--text-secondary); font-size: 0.92rem; line-height: 1.5; margin-bottom: 1rem;">
-          As a Host, you direct live esports trivia rooms and tournaments on the big screen.
-        </p>
-
-        <div class="onboarding-visual-box" style="text-align: left;">
-          <div style="display: flex; gap: 0.75rem; align-items: flex-start; margin-bottom: 0.75rem;">
-            <span style="color: var(--neon-lime); font-size: 1.1rem; line-height: 1;">✦</span>
-            <div style="font-size: 0.88rem; color: #fff;"><strong>Dedicated Host Accounts:</strong> Sign in with your facilitator credentials or register directly. No player restrictions or lockouts.</div>
-          </div>
-          <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
-            <span style="color: var(--neon-lime); font-size: 1.1rem; line-height: 1;">✦</span>
-            <div style="font-size: 0.88rem; color: #fff;"><strong>Bound Tournament Profiles:</strong> All sessions you create tie competing players' cumulative scores directly to your Host leaderboard.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Slide 2: Room Creation & PIN Generation -->
-      <div class="onboarding-step-slide" id="hSlide2">
-        <div style="width: 52px; height: 52px; background: rgba(0, 240, 255, 0.1); border: 2px solid var(--neon-cyan); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--neon-cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-        </div>
-        <h2 style="font-family: var(--font-display); font-size: 1.6rem; font-weight: 900; text-transform: uppercase; margin-bottom: 0.5rem;">
-          ROOMS & MULTI-SESSIONS
-        </h2>
-        <p style="color: var(--text-secondary); font-size: 0.92rem; line-height: 1.5; margin-bottom: 1rem;">
-          Launch a single quick game or schedule an entire multi-session tournament deck.
-        </p>
-
-        <div class="onboarding-visual-box" style="text-align: left;">
-          <div style="display: flex; gap: 0.75rem; align-items: flex-start; margin-bottom: 0.75rem;">
-            <span style="color: var(--neon-cyan); font-size: 1.1rem; line-height: 1;">✦</span>
-            <div style="font-size: 0.88rem; color: #fff;"><strong>Automatic PIN & QR:</strong> Each session generates a distinct 6-character access code and instant QR code for mobile camera scanning.</div>
-          </div>
-          <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
-            <span style="color: var(--neon-cyan); font-size: 1.1rem; line-height: 1;">✦</span>
-            <div style="font-size: 0.88rem; color: #fff;"><strong>Multi-Session Tournament Deck:</strong> Run multiple match stages; contenders retain their player identity across the whole event.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Slide 3: Live Directing & Results -->
-      <div class="onboarding-step-slide" id="hSlide3">
-        <div style="width: 52px; height: 52px; background: rgba(0, 230, 118, 0.1); border: 2px solid var(--neon-lime); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-        </div>
-        <h2 style="font-family: var(--font-display); font-size: 1.6rem; font-weight: 900; text-transform: uppercase; margin-bottom: 0.5rem;">
-          LIVE DIRECTING & TELEMETRY
-        </h2>
-        <p style="color: var(--text-secondary); font-size: 0.92rem; line-height: 1.5; margin-bottom: 1rem;">
-          Project live question timers, watch response distribution bars surge, and celebrate winners!
-        </p>
-
-        <div class="onboarding-visual-box" style="text-align: left;">
-          <div style="display: flex; gap: 0.75rem; align-items: flex-start; margin-bottom: 0.75rem;">
-            <span style="color: var(--neon-lime); font-size: 1.1rem; line-height: 1;">✦</span>
-            <div style="font-size: 0.88rem; color: #fff;"><strong>Dynamic Visualizer:</strong> Live answer counters, correct choice reveal keys, and real-time round rankings.</div>
-          </div>
-          <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
-            <span style="color: var(--neon-lime); font-size: 1.1rem; line-height: 1;">✦</span>
-            <div style="font-size: 0.88rem; color: #fff;"><strong>Export Anytime:</strong> Instant download of full match results and tournament statistics to CSV or Excel.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Navigation buttons -->
-      <div class="onboarding-nav-row">
-        <button type="button" id="btnHostOnboardPrev" onclick="prevHostOnboardStep()" class="btn-cyber btn-dark" style="visibility: hidden; font-size: 0.85rem; padding: 0.6rem 1.1rem;">
-          ← BACK
-        </button>
-        <div style="display: flex; gap: 0.5rem;">
-          <button type="button" onclick="closeHostOnboarding()" class="btn-cyber btn-dark" style="font-size: 0.85rem; padding: 0.6rem 1rem;">
-            SKIP
-          </button>
-          <button type="button" id="btnHostOnboardNext" onclick="nextHostOnboardStep()" class="btn-cyber btn-lime" style="font-size: 0.85rem; padding: 0.6rem 1.35rem;">
-            NEXT →
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL: HUD FULLSCREEN QR CODE -->
-  <div id="hudQrModal" class="modal-overlay" onclick="closeHudQrModal(event)">
-    <div class="modal-card" style="max-width: 500px; text-align: center;" onclick="event.stopPropagation()">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-        <h2 style="font-family: var(--font-display); font-size: 1.7rem; font-weight: 900; text-transform: uppercase; margin: 0;">
-          ROOM ACCESS & QR CODE
-        </h2>
-        <button onclick="closeHudQrModal()" class="btn-cyber btn-dark" style="padding: 0.4rem 0.8rem; font-size: 0.9rem;">✕ CLOSE</button>
-      </div>
-
-      <div style="background: var(--bg-surface-elevated); border: 2px solid var(--border-cyber-active); border-radius: var(--radius-button); padding: 1.25rem; margin-bottom: 1.5rem;">
-        <div style="font-family: var(--font-display); font-size: 0.85rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">
-          CONTENDER ACCESS PIN
-        </div>
-        <div id="hudModalPinValue" class="lobby-pin-value" style="font-size: 3.2rem; margin: 0.4rem 0;">------</div>
-        <div id="hudModalUrlText" style="color: var(--text-secondary); font-size: 0.9rem; word-break: break-all;">
-          player.html?pin=------
-        </div>
-      </div>
-
-      <div class="lobby-qr-card" style="margin: 0 auto 1.5rem auto; display: inline-flex;">
-        <div id="hudModalQrContainer"></div>
-        <div class="lobby-qr-caption">SCAN CAMERA TO JOIN INSTANTLY</div>
-      </div>
-
-      <div>
-        <button onclick="copyLobbyJoinUrl()" class="btn-cyber btn-lime" style="width: 100%; padding: 0.95rem; font-size: 1.05rem;">
-          COPY DIRECT JOIN LINK
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- QR Code Generator, SignalR & Client Logic -->
   <script src="/js/lib/qrcode.min.js"></script>
   <script src="/js/lib/signalr.min.js"></script>
-  <script src="/js/audio.js?v=3.5"></script>
-  <script src="/js/host.js?v=3.5"></script>
+  <script src="/js/audio.js?v=4.2"></script>
+  <script src="/js/ui.js?v=4.2"></script>
+  <script src="/js/host.js?v=4.2"></script>
 </body>
 </html>

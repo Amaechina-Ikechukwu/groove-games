@@ -412,7 +412,7 @@ public class PostgresDataService : ITriviaDataService
     }
 
     public async Task UpdatePlayerStatsAsync(
-        string fullName, string organizationId, int pointsEarned, int correctAnswers, int streak, string identifier = "", string hostId = "")
+        string fullName, string organizationId, int pointsEarned, int correctAnswers, int streak, string identifier = "", string hostId = "", int questionsAnswered = 1)
     {
         var player = await GetOrCreatePlayerAsync(fullName, organizationId, identifier, hostId);
 
@@ -420,7 +420,8 @@ public class PostgresDataService : ITriviaDataService
         {
             player.TotalPointsAllTime += pointsEarned;
             player.QuizzesPlayed += 1;
-            player.QuestionsAnswered += correctAnswers > 0 ? 1 : 1;
+            // Count every question the player was asked, so accuracy can never exceed 100%.
+            player.QuestionsAnswered += Math.Max(questionsAnswered, correctAnswers);
             player.CorrectAnswersCount += correctAnswers;
             if (streak > player.HighestStreak)
             {

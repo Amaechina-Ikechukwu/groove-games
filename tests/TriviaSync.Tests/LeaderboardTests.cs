@@ -64,6 +64,20 @@ public class LeaderboardTests
     }
 
     [Fact]
+    public async Task UpdatePlayerStats_AccuracyCountsEveryQuestionAsked()
+    {
+        string name = $"Accuracy {Guid.NewGuid():N}";
+        string org = "org_accuracy";
+
+        // A 3-question game with 2 correct answers must be 66.7%, not 200%.
+        await _dataService.UpdatePlayerStatsAsync(name, org, 1500, 2, 2, "", "host@test.live", questionsAnswered: 3);
+
+        var p = await _dataService.GetOrCreatePlayerAsync(name, org);
+        Assert.Equal(3, p.QuestionsAnswered);
+        Assert.Equal(66.7, p.AccuracyPercentage);
+    }
+
+    [Fact]
     public async Task GetPersistentLeaderboard_FiltersAndSortsCorrectly()
     {
         var leaderboard = await _dataService.GetPersistentLeaderboardAsync();

@@ -27,14 +27,30 @@ public class LeaderboardController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<PersistentPlayer>>> GetLeaderboard(
+    public async Task<ActionResult> GetLeaderboard(
         [FromQuery] string? organizationId = null,
         [FromQuery] string? hostId = null,
         [FromQuery] string? search = null,
         [FromQuery] int limit = 100)
     {
-        var players = await _dataService.GetPersistentLeaderboardAsync(organizationId, hostId, search, limit);
-        return Ok(players);
+        var players = await _dataService.GetPersistentLeaderboardAsync(organizationId, hostId, search, Math.Clamp(limit, 1, 500));
+        if (User.CanHost())
+        {
+            return Ok(players);
+        }
+
+        // Public view: the identifier is often an email or student ID, so it is never exposed anonymously.
+        return Ok(players.Select(p => new
+        {
+            fullName = p.FullName,
+            totalPointsAllTime = p.TotalPointsAllTime,
+            quizzesPlayed = p.QuizzesPlayed,
+            questionsAnswered = p.QuestionsAnswered,
+            correctAnswersCount = p.CorrectAnswersCount,
+            highestStreak = p.HighestStreak,
+            lastActive = p.LastActive,
+            accuracyPercentage = p.AccuracyPercentage
+        }));
     }
 
     [HttpGet("tournaments")]
@@ -48,7 +64,6 @@ public class LeaderboardController : ControllerBase
             {
                 tournamentId = g.Key,
                 tournamentName = g.First().TournamentName,
-                hostId = g.First().HostId,
                 sessionCount = g.Count(),
                 totalPlayers = g.SelectMany(s => s.Players.Values).Select(p => p.FullName).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
                 pins = g.Select(s => s.Pin).ToList(),
@@ -135,7 +150,7 @@ public class LeaderboardController : ControllerBase
         });
     }
 
-    [Authorize(Roles = "Admin,SuperAdmin")]
+    [Authorize(Policy = "AdminOnly")]
     [HttpPost("reset")]
     public async Task<ActionResult> ResetLeaderboard(
         [FromQuery] string? organizationId = null,
@@ -145,6 +160,7 @@ public class LeaderboardController : ControllerBase
         return Ok(new { message = "Leaderboard reset successfully." });
     }
 
+    [Authorize(Policy = "HostOnly")]
     [HttpGet("export/csv")]
     public async Task<ActionResult> ExportCsv(
         [FromQuery] string? organizationId = null,
@@ -156,6 +172,7 @@ public class LeaderboardController : ControllerBase
         return File(bytes, "text/csv; charset=utf-8", "Groove_Global_Leaderboard.csv");
     }
 
+    [Authorize(Policy = "HostOnly")]
     [HttpGet("export/excel")]
     public async Task<ActionResult> ExportExcel(
         [FromQuery] string? organizationId = null,
