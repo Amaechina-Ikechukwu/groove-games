@@ -144,8 +144,11 @@ public class TournamentService : ITournamentService
                     id text PRIMARY KEY, tournament_id text NOT NULL, title text NOT NULL, quiz_id text NOT NULL,
                     quiz_json text NOT NULL, mode text NOT NULL, status text NOT NULL,
                     closes_at timestamp with time zone NULL, live_pin text NULL, code text NOT NULL DEFAULT '',
+                    opened_at timestamp with time zone NULL, closed_at timestamp with time zone NULL,
                     created_at timestamp with time zone NOT NULL);
                 ALTER TABLE tournament_sessions ADD COLUMN IF NOT EXISTS code text NOT NULL DEFAULT '';
+                ALTER TABLE tournament_sessions ADD COLUMN IF NOT EXISTS opened_at timestamp with time zone NULL;
+                ALTER TABLE tournament_sessions ADD COLUMN IF NOT EXISTS closed_at timestamp with time zone NULL;
                 CREATE TABLE IF NOT EXISTS session_attempts (
                     id text PRIMARY KEY, session_id text NOT NULL, tournament_id text NOT NULL, user_email text NOT NULL,
                     display_name text NOT NULL, started_at timestamp with time zone NOT NULL, completed_at timestamp with time zone NULL,
@@ -171,6 +174,8 @@ public class TournamentService : ITournamentService
             {
                 s.Status = SessionStatuses.Draft;
                 s.LivePin = null;
+                s.OpenedAt = null;
+                s.ClosedAt = null;
                 Persist(db2 => db2.TournamentSessions.Update(s));
             }
         }
@@ -432,6 +437,8 @@ public class TournamentService : ITournamentService
             if (s.Mode != SessionModes.SelfPaced)
                 throw TournamentException.Invalid("Only self-paced sessions can be opened with a deadline.");
             RequirePlayableContent(s);
+            s.OpenedAt ??= DateTime.UtcNow;
+            s.ClosedAt = null;
             s.Status = SessionStatuses.Open;
             s.ClosesAt = closesAt;
             Persist(db => db.TournamentSessions.Update(s));
@@ -447,8 +454,7 @@ public class TournamentService : ITournamentService
             if (s.Mode != SessionModes.SelfPaced)
                 throw TournamentException.Invalid("Live sessions end when the host ends the game.");
             s.Status = SessionStatuses.Closed;
-            if (s.ClosesAt == null || s.ClosesAt > DateTime.UtcNow)
-                s.ClosesAt = DateTime.UtcNow;
+            s.ClosedAt = DateTime.UtcNow;
             Persist(db => db.TournamentSessions.Update(s));
             return s;
         }
@@ -461,6 +467,8 @@ public class TournamentService : ITournamentService
             var s = _sessions.GetValueOrDefault(sessionId) ?? throw TournamentException.NotFound("Session");
             s.Status = SessionStatuses.Live;
             s.LivePin = pin;
+            s.OpenedAt = DateTime.UtcNow;
+            s.ClosedAt = null;
             Persist(db => db.TournamentSessions.Update(s));
         }
     }
@@ -479,6 +487,9 @@ public class TournamentService : ITournamentService
 
             s.LivePin = null;
             s.Status = finished ? SessionStatuses.Closed : SessionStatuses.Draft;
+            // A game ended early is discarded, so it goes back to never having run.
+            s.ClosedAt = finished ? DateTime.UtcNow : null;
+            if (!finished) s.OpenedAt = null;
             Persist(db => db.TournamentSessions.Update(s));
 
             if (!finished)

@@ -131,6 +131,9 @@ public class TournamentsController : ControllerBase
         {
             id = s.Id,
             title = s.Title,
+            createdAt = s.CreatedAt,
+            openedAt = s.OpenedAt,
+            closedAt = s.ClosedAt,
             code = canManage ? s.Code : null,
             questionsLocked = canManage ? _tournaments.QuestionsLocked(s) : (bool?)null,
             mode = s.Mode,
@@ -241,6 +244,7 @@ public class TournamentsController : ControllerBase
                 id = t.Id,
                 name = t.Name,
                 description = t.Description,
+                createdAt = t.CreatedAt,
                 hostName = _auth.FindUser(t.HostEmail)?.DisplayName ?? "Host",
                 sessionCount = sessions.Count,
                 playedCount = sessions.Count(s => _tournaments.EffectiveStatus(s) == SessionStatuses.Closed),

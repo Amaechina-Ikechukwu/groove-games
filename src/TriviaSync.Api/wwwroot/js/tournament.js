@@ -71,7 +71,7 @@
   // ---------------------------------------------------------------------------
   function renderHeader() {
     document.title = `${info.name} · Groove`;
-    $('tHost').textContent = `Tournament · Hosted by ${info.hostName}`;
+    $('tHost').innerHTML = `Tournament · Hosted by ${UI.escape(info.hostName)}${info.createdAt ? ` · Created ${UI.stamp(info.createdAt)}` : ''}`;
     $('tName').textContent = info.name;
     $('tDescription').textContent = info.description || '';
     $('tDescription').hidden = !info.description;
@@ -157,6 +157,18 @@
     return buttons.join('');
   }
 
+  /** "Created … · Started … · Closed …" for a session card. */
+  function sessionTimeline(s) {
+    const parts = [`Created ${UI.stamp(s.createdAt)}`];
+    if (s.openedAt) parts.push(`${s.mode === 'Live' ? 'Started' : 'Opened'} ${UI.stamp(s.openedAt)}`);
+    if (s.status === 'Open' && s.closesAt) parts.push(`Closes ${UI.stamp(s.closesAt)}`);
+    else if (s.status === 'Closed') {
+      const end = s.closedAt || s.closesAt;
+      if (end) parts.push(`Closed ${UI.stamp(end)}`);
+    }
+    return parts.join(' · ');
+  }
+
   function renderSessions() {
     const list = $('sessionList');
     const sessions = detail.sessions || [];
@@ -174,8 +186,9 @@
             <span class="badge badge-outline">${s.mode === 'Live' ? 'Live game' : 'Self-paced'}</span>
             ${statusBadge(s)}
             ${canManage && s.code ? `<span class="badge" title="Access code">Code ${UI.escape(s.livePin || s.code)}</span>` : ''}
-            <span class="subtle">${s.questionCount} question${s.questionCount === 1 ? '' : 's'}${s.mode === 'SelfPaced' && s.closesAt && s.status !== 'Draft' ? ` · ${s.status === 'Open' ? 'closes' : 'closed'} ${UI.escape(UI.formatDateTime(s.closesAt))}` : ''}</span>
+            <span class="subtle">${s.questionCount} question${s.questionCount === 1 ? '' : 's'}</span>
           </div>
+          <p class="subtle mt-1" style="font-size: 0.8125rem;">${sessionTimeline(s)}</p>
         </div>
         <div class="session-actions">${canManage ? manageActions(s) : memberActions(s)}</div>
       </div>`).join('');
@@ -803,8 +816,8 @@
             <button class="btn btn-ghost btn-icon btn-sm" data-close aria-label="Close">${UI.icon('x')}</button>
           </div>
           <div class="table-wrap"><table class="table">
-            <thead><tr><th>#</th><th>Player</th><th class="right">Score</th><th class="right">Correct</th><th>Status</th></tr></thead>
-            <tbody><tr><td colspan="5" class="empty-row">Loading…</td></tr></tbody>
+            <thead><tr><th>#</th><th>Player</th><th class="right">Score</th><th class="right">Correct</th><th>Status</th><th class="hide-sm">Started</th><th class="hide-sm">Finished</th></tr></thead>
+            <tbody><tr><td colspan="7" class="empty-row">Loading…</td></tr></tbody>
           </table></div>`;
         el.querySelector('[data-close]').onclick = () => close();
         UI.api(sessionUrl(s, '/results')).then(r => {
@@ -815,9 +828,11 @@
               <td class="right score">${UI.formatNumber(a.score)}</td>
               <td class="right num">${a.correct}/${a.questionCount}</td>
               <td>${a.completed ? '<span class="badge badge-success">Finished</span>' : `<span class="badge badge-warning">${a.answered} of ${a.questionCount}</span>`}</td>
-            </tr>`).join('') || '<tr><td colspan="5" class="empty-row">No one has played yet.</td></tr>';
+              <td class="hide-sm muted">${UI.stamp(a.startedAt)}</td>
+              <td class="hide-sm muted">${a.completedAt ? UI.stamp(a.completedAt) : '—'}</td>
+            </tr>`).join('') || '<tr><td colspan="7" class="empty-row">No one has played yet.</td></tr>';
         }).catch(err => {
-          el.querySelector('tbody').innerHTML = `<tr><td colspan="5" class="empty-row">${UI.escape(err.message)}</td></tr>`;
+          el.querySelector('tbody').innerHTML = `<tr><td colspan="7" class="empty-row">${UI.escape(err.message)}</td></tr>`;
         });
       },
     });
@@ -860,7 +875,7 @@
           <td><div class="player-cell">${UI.avatar(m.displayName)}${UI.escape(m.displayName)}</div></td>
           <td class="hide-sm muted">${UI.escape(m.email)}</td>
           <td class="right score">${UI.formatNumber(m.totalScore)}</td>
-          <td class="hide-sm muted">${new Date(m.joinedAt).toLocaleDateString()}</td>
+          <td class="hide-sm muted">${UI.stamp(m.joinedAt)}</td>
           <td class="right"><button class="btn btn-ghost btn-sm" data-remove="${UI.escape(m.email)}" data-name="${UI.escape(m.displayName)}">Remove</button></td>
         </tr>`).join('') : '<tr><td colspan="5" class="empty-row">No one has joined yet. Share the code above.</td></tr>';
       $('membersTable').querySelectorAll('[data-remove]').forEach(b => {

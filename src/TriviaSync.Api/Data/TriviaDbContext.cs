@@ -231,6 +231,14 @@ public class TournamentSessionEntity
     [Column("live_pin")]
     public string? LivePin { get; set; }
 
+    /// <summary>When the host opened a self-paced session or started a live game. Cleared if the session is reset.</summary>
+    [Column("opened_at")]
+    public DateTime? OpenedAt { get; set; }
+
+    /// <summary>When the session was closed or the live game finished. The original deadline stays in ClosesAt.</summary>
+    [Column("closed_at")]
+    public DateTime? ClosedAt { get; set; }
+
     /// <summary>Permanent 6-digit access code. Live sessions use it as their game PIN.</summary>
     [Column("code")]
     public string Code { get; set; } = string.Empty;
