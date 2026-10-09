@@ -3,473 +3,243 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Groove - Admin Deck & Bulk Ingestion</title>
-  <link rel="stylesheet" href="/css/style.css?v=3.5">
+  <title>Admin · Groove</title>
+  <link rel="stylesheet" href="/css/style.css?v=4.3">
   <style>
-    body {
-      background: var(--bg-dark);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+    .view { display: none; }
+    .view.is-active { display: block; }
+    .panel { display: none; }
+    .panel.is-active { display: block; animation: fade-in .15s ease-out; }
+    .editor-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+    @media (max-width: 960px) { .editor-grid { grid-template-columns: minmax(0, 1fr); } }
+    #rawText { min-height: 380px; }
+    .format-guide pre { background: var(--surface-2); border-radius: var(--radius-sm); padding: 12px; font-size: 0.8125rem; overflow-x: auto; margin-top: 8px; }
+    .format-guide summary { cursor: pointer; font-weight: 600; font-size: 0.9375rem; color: var(--text-2); }
 
-    .admin-container {
-      max-width: 1450px;
-      margin: 0 auto;
-      padding: 1.5rem 2rem 5rem 2rem;
-      width: 100%;
-      flex: 1;
-    }
+    .q-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+    .q-card + .q-card { margin-top: 12px; }
+    .q-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+    .q-card-head .grow { font-weight: 600; font-size: 0.875rem; color: var(--text-3); }
+    .q-meta { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; color: var(--text-3); }
+    .q-meta input { width: 72px; }
+    .choice-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+    .choice-row input[type=radio] { width: 18px; height: 18px; accent-color: var(--lime); flex-shrink: 0; }
+    .choice-row.is-correct .input { border-color: var(--lime); }
+    .preview-scroll { max-height: 640px; overflow-y: auto; padding-right: 4px; }
+    .parse-messages { font-size: 0.875rem; }
+    .parse-messages li { margin-left: 18px; }
 
-    /* Admin Sub Navigation Tabs */
-    .admin-tabs {
-      display: flex;
-      gap: 0.75rem;
-      margin-bottom: 2rem;
-      border-bottom: 1px solid var(--border-cyber);
-      padding-bottom: 1rem;
-      overflow-x: auto;
-    }
-
-    .tab-btn {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-cyber);
-      color: var(--text-secondary);
-      font-family: var(--font-display);
-      font-weight: 800;
-      font-size: 0.95rem;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      padding: 0.75rem 1.5rem;
-      border-radius: var(--radius-button);
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.6rem;
-      white-space: nowrap;
-    }
-
-    .tab-btn:hover {
-      color: #fff;
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    .tab-btn.active {
-      background: var(--neon-lime);
-      color: var(--text-dark);
-      border-color: var(--neon-lime);
-      box-shadow: 0 0 20px var(--neon-lime-glow);
-    }
-
-    .tab-content {
-      display: none;
-      animation: popIn 0.25s ease;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
-    /* Split-screen layout for Bulk Ingestion */
-    .split-layout {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 2rem;
-      align-items: flex-start;
-    }
-
-    .raw-textarea {
-      width: 100%;
-      height: 480px;
-      background: #0d0f14;
-      border: 2px solid var(--border-cyber);
-      border-radius: var(--radius-card);
-      color: #A3E635;
-      font-family: 'Consolas', 'Courier New', monospace;
-      font-size: 1rem;
-      line-height: 1.5;
-      padding: 1.25rem;
-      outline: none;
-      resize: vertical;
-      transition: border-color 0.2s ease;
-    }
-
-    .raw-textarea:focus {
-      border-color: var(--neon-lime);
-      box-shadow: 0 0 0 4px var(--neon-lime-dim);
-    }
-
-    /* Parsed Card in Preview */
-    .parsed-q-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-cyber);
-      border-radius: var(--radius-card);
-      padding: 1.5rem;
-      margin-bottom: 1.25rem;
-      position: relative;
-      transition: all 0.2s ease;
-    }
-
-    .parsed-q-card:hover {
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    .parsed-choice-item {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 0.5rem;
-      background: var(--bg-surface-elevated);
-      padding: 0.5rem 0.85rem;
-      border-radius: var(--radius-button);
-      border: 1px solid var(--border-cyber);
-    }
-
-    .parsed-choice-item.is-correct {
-      border-color: var(--neon-lime);
-      background: rgba(212, 255, 0, 0.08);
-    }
-
-    @media (max-width: 992px) {
-      .split-layout {
-        grid-template-columns: 1fr;
-      }
-      .admin-container {
-        padding: 1rem 0.85rem 4rem 0.85rem;
-      }
-    }
-
-    @media (max-width: 600px) {
-      #adminAuthGate .cyber-card {
-        padding: 1.5rem 1.15rem !important;
-      }
-      .admin-tabs {
-        gap: 0.4rem;
-        padding-bottom: 0.5rem;
-      }
-      .tab-btn {
-        padding: 0.5rem 0.85rem;
-        font-size: 0.78rem;
-      }
-      .raw-textarea {
-        height: 280px;
-        font-size: 0.88rem;
-        padding: 0.85rem;
-      }
-    }
+    .quiz-card h3 { margin-bottom: 4px; overflow-wrap: anywhere; }
   </style>
 </head>
 <body>
+  <header class="topbar">
+    <div class="container container-wide topbar-inner">
+      <a href="/" class="brand" aria-label="Groove home" data-guard-nav>
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span class="brand-name">Groove</span>
+        <span class="brand-context">Admin</span>
+      </a>
+      <nav class="nav" aria-label="Main">
+        <a href="/player.html" data-guard-nav>Join</a>
+        <a href="/tournaments.html" data-guard-nav>Tournaments</a>
+        <a href="/host.html" data-guard-nav>Host</a>
+        <a href="/leaderboard.html" data-guard-nav>Standings</a>
+        <a href="/admin.html" aria-current="page" data-admin-only hidden>Admin</a>
+      </nav>
+      <div class="account" id="account"></div>
+    </div>
+  </header>
 
-  <!-- Top Navigation -->
-  <nav class="navbar">
-    <a href="/" class="brand-container">
-      <div class="brand-glyph">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 24px; height: 24px; flex-shrink: 0;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-      </div>
-      <div class="brand-title">GROO<span class="accent">VE</span> CONTROL DECK</div>
-    </a>
-
-    <!-- Right Controls: Active Admin Profile Badge & Navigation -->
-    <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
-      <div id="adminUserBadge" style="display: none; align-items: center; gap: 0.65rem; font-size: 0.85rem; background: var(--bg-surface-elevated); border: 1px solid var(--border-cyber-active); padding: 0.4rem 0.85rem; border-radius: 8px;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; flex-shrink: 0;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-        <span id="adminEmailDisplay" style="font-weight: 700; color: #fff;">admin@groove.live</span>
-        <button onclick="adminLogout()" style="background: rgba(255, 42, 85, 0.1); border: 1px solid rgba(255, 42, 85, 0.3); color: var(--tile-red); cursor: pointer; display: flex; align-items: center; gap: 0.35rem; font-family: var(--font-display); font-weight: 800; font-size: 0.75rem; text-transform: uppercase; margin-left: 0.5rem; padding: 0.25rem 0.6rem; border-radius: 6px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; flex-shrink: 0;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-          LOGOUT
-        </button>
-      </div>
-
-      <div class="nav-pill-group">
-        <a href="/leaderboard.html" class="nav-pill">STANDINGS</a>
-        <a href="/player.html" class="nav-pill">BUZZER</a>
-        <a href="/host.html" class="nav-pill">HOST SCREEN</a>
-        <a href="/admin.html" class="nav-pill active">ADMIN PORTAL</a>
+  <!-- Signed out -->
+  <main class="view page" id="viewGate">
+    <div class="container container-narrow">
+      <div class="card card-lg text-center">
+        <h1>Admin</h1>
+        <p class="muted mt-2">Sign in with an admin account to manage quizzes, standings and people.</p>
+        <button type="button" class="btn btn-primary btn-lg mt-6" id="gateSignIn">Sign in</button>
       </div>
     </div>
-  </nav>
+  </main>
 
-  <!-- AUTHENTICATION GATE (Prompted when not logged in as Admin) -->
-  <div id="adminAuthGate" style="display: flex; min-height: 75vh; align-items: center; justify-content: center; padding: 2rem 1rem;">
-    <div class="cyber-card" style="max-width: 480px; width: 100%; padding: 2.75rem 2.25rem; box-shadow: var(--shadow-cyber); border-color: var(--border-cyber-active);">
-      <div style="display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 2rem;">
-        <div style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; background: rgba(212, 255, 0, 0.08); border: 2px solid var(--neon-lime); border-radius: 14px; margin-bottom: 1.25rem; box-shadow: 0 0 25px rgba(212, 255, 0, 0.18);">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--neon-lime)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width: 28px; height: 28px; flex-shrink: 0;">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-          </svg>
-        </div>
-        <h2 style="font-family: var(--font-display); font-size: 1.85rem; font-weight: 900; text-transform: uppercase; margin: 0; letter-spacing: 0.5px;">
-          ADMIN CONTROL ACCESS
-        </h2>
-        <p style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.5rem; line-height: 1.5; max-width: 380px;">
-          Sign in with Administrator credentials to manage quizzes, inspect system databases, and configure RBAC roles.
-        </p>
-      </div>
-
-      <div id="adminAuthAlert" style="display: none; margin-bottom: 1.25rem; padding: 0.85rem 1rem; border-radius: var(--radius-button); font-weight: 700; font-size: 0.9rem; background: rgba(255, 42, 85, 0.15); border: 1px solid var(--tile-red); color: var(--tile-red);"></div>
-
-      <form onsubmit="handleAdminLogin(event)">
-        <div style="margin-bottom: 1.25rem;">
-          <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.4rem;">
-            Admin Email
-          </label>
-          <input type="email" id="adminLoginEmail" class="form-input-cyber" value="admin@groove.live" required>
-        </div>
-
-        <div style="margin-bottom: 1.25rem;">
-          <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 0.4rem;">
-            Admin Password
-          </label>
-          <input type="password" id="adminLoginPassword" class="form-input-cyber" value="admin123" required>
-        </div>
-
-        <div style="margin-bottom: 1.5rem; padding: 0.75rem 1rem; background: var(--bg-surface-elevated); border-radius: 8px; border: 1px solid var(--border-cyber); font-size: 0.8rem; color: var(--text-muted);">
-          <strong style="color: var(--text-secondary); display: block; margin-bottom: 0.35rem;">QUICK CREDENTIALS:</strong>
-          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            <button type="button" onclick="setAdminCreds('admin@groove.live', 'admin123')" class="hud-pill" style="cursor: pointer; font-size: 0.75rem;">Admin: admin@groove.live</button>
-            <button type="button" onclick="setAdminCreds('admin@triviasync.com', 'admin123')" class="hud-pill" style="cursor: pointer; font-size: 0.75rem;">Admin: admin@triviasync.com</button>
-          </div>
-        </div>
-
-        <button type="submit" id="btnAdminLoginSubmit" class="btn-cyber btn-lime" style="width: 100%; height: 54px; font-size: 1rem; font-weight: 900; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; gap: 0.65rem;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px; min-width: 20px; max-width: 20px; flex-shrink: 0;">
-            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-          </svg>
-          <span style="white-space: nowrap;">AUTHENTICATE & ENTER DECK</span>
-        </button>
-      </form>
-    </div>
-  </div>
-
-  <!-- ADMIN MAIN CONTENT (Revealed Once Authenticated) -->
-  <div id="adminMainContent" class="admin-container" style="display: none;">
-
-    <!-- Admin Sub Navigation Tabs with Vector Icons -->
-    <div class="admin-tabs">
-      <button class="tab-btn active" onclick="switchAdminTab('tabIngest')">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-        BULK QUIZ PARSER
-      </button>
-      <button class="tab-btn" onclick="switchAdminTab('tabSaved')">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-        QUIZ BANK (<span id="savedQuizCountBadge">0</span>)
-      </button>
-      <button class="tab-btn" onclick="switchAdminTab('tabLeaderboard')">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path><path d="M6 4h12v7a6 6 0 0 1-12 0V4z"></path></svg>
-        PERSISTENT LEADERBOARD
-      </button>
-      <button class="tab-btn" onclick="switchAdminTab('tabRoles')">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-        ROLES & RBAC
-      </button>
-    </div>
-
-    <!-- TAB 1: BULK INGESTION (Split-Screen) -->
-    <div id="tabIngest" class="tab-content active">
-      <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-        <div>
-          <h2 style="font-family: var(--font-display); font-size: 2rem; font-weight: 900; text-transform: uppercase;">
-            SMART BULK QUIZ INGESTION
-          </h2>
-          <p style="color: var(--text-secondary);">
-            Paste raw Markdown, plain text, or JSON. The backend engine automatically tokenizes questions, choices, answer keys, timers, and point values.
-          </p>
-        </div>
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-          <button onclick="insertTemplate(1)" class="btn-cyber btn-dark" style="font-size: 0.85rem; padding: 0.5rem 1rem;">Sample 1 (PRD Syntax)</button>
-          <button onclick="insertTemplate(2)" class="btn-cyber btn-dark" style="font-size: 0.85rem; padding: 0.5rem 1rem;">Sample 2 (C# & Cloud)</button>
-          <button onclick="insertTemplate(3)" class="btn-cyber btn-dark" style="font-size: 0.85rem; padding: 0.5rem 1rem;">Sample 3 (True/False)</button>
+  <!-- Signed in without admin rights -->
+  <main class="view page" id="viewDenied">
+    <div class="container container-narrow">
+      <div class="card card-lg">
+        <h1>You don't have admin access</h1>
+        <p class="muted mt-2">You're signed in as <strong id="deniedEmail"></strong> (<span id="deniedRole"></span>). An existing admin can give you access from the People tab.</p>
+        <div class="row-wrap mt-6">
+          <button type="button" class="btn btn-secondary" id="switchAccount">Use a different account</button>
+          <a class="btn btn-ghost" href="/">Back to home</a>
         </div>
       </div>
+    </div>
+  </main>
 
-      <div class="split-layout">
-        <!-- LEFT: Raw Text Area -->
-        <div class="cyber-card" style="padding: 1.5rem;">
-          <div style="margin-bottom: 1rem;">
-            <label style="font-family: var(--font-display); font-weight: 800; font-size: 0.95rem; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">
-              QUIZ TITLE
-            </label>
-            <input type="text" id="quizTitleInput" class="form-input-cyber" placeholder="e.g. Distributed Systems & Docker" value="C# & Cloud Microservices">
-          </div>
+  <!-- Admin -->
+  <main class="view page" id="viewAdmin">
+    <div class="container container-wide">
+      <div class="tabs" role="tablist" aria-label="Admin sections">
+        <button class="tab" role="tab" data-tab="panelCreate" aria-selected="true">New quiz</button>
+        <button class="tab" role="tab" data-tab="panelQuizzes">Quizzes <span class="count" id="quizCount">0</span></button>
+        <button class="tab" role="tab" data-tab="panelTournaments">Tournaments <span class="count" id="tournamentCount">0</span></button>
+        <button class="tab" role="tab" data-tab="panelGames">Live games <span class="count" id="gameCount">0</span></button>
+        <button class="tab" role="tab" data-tab="panelLeaderboard">Leaderboard</button>
+        <button class="tab" role="tab" data-tab="panelPeople">People</button>
+      </div>
 
-          <div style="margin-bottom: 1rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-              <label style="font-family: var(--font-display); font-weight: 800; font-size: 0.95rem; text-transform: uppercase; color: var(--text-muted);">
-                RAW BULK TEXT / MARKDOWN
-              </label>
-              <span style="font-size: 0.85rem; color: var(--neon-lime);">Use *, [x], or Answer: A</span>
+      <!-- New quiz -->
+      <section class="panel is-active" id="panelCreate" role="tabpanel">
+        <div class="editor-grid">
+          <div class="card stack">
+            <div>
+              <h2 style="font-size: 1.25rem;">Write or paste questions</h2>
+              <p class="muted mt-1" style="font-size: 0.9375rem;">Plain text, Markdown or JSON. Check the preview before saving.</p>
             </div>
-            <textarea id="rawQuizTextInput" class="raw-textarea" placeholder="Paste questions here..."></textarea>
+            <div class="field">
+              <label class="label" for="quizTitle">Quiz title</label>
+              <input class="input" id="quizTitle" maxlength="120" placeholder="e.g. Friday general knowledge">
+            </div>
+            <div class="field">
+              <label class="label" for="rawText">Questions</label>
+              <textarea class="textarea mono" id="rawText" spellcheck="false" placeholder="Q1: What does API stand for?&#10;A) Application Programming Interface *&#10;B) Applied Protocol Integration&#10;C) Advanced Programmer Interaction&#10;Time: 15s&#10;Points: 1000"></textarea>
+            </div>
+            <details class="format-guide">
+              <summary>Formatting guide</summary>
+              <p class="muted mt-2" style="font-size: 0.875rem;">Start each question with <code>Q1:</code>. List choices as <code>A)</code>, <code>B)</code>… and mark the right one with <code>*</code>, or use <code>[x]</code> / <code>[ ]</code> for true/false. <code>Time:</code> and <code>Points:</code> are optional (defaults: 20s, 1000).</p>
+              <pre>Q1: Which planet is closest to the sun?
+A) Venus
+B) Mercury *
+C) Mars
+Time: 15s
+
+Q2: The Pacific is the largest ocean.
+[x] True
+[ ] False</pre>
+              <button type="button" class="btn btn-secondary btn-sm mt-2" id="insertExample">Use this example</button>
+            </details>
+            <div class="row-wrap">
+              <button type="button" class="btn btn-primary" id="parseButton">Preview questions</button>
+              <button type="button" class="btn btn-ghost" id="clearButton">Clear</button>
+            </div>
           </div>
 
-          <div style="display: flex; gap: 1rem;">
-            <button onclick="runParser()" class="btn-cyber btn-lime" style="flex: 1; justify-content: center; gap: 0.5rem;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-              PARSE WITH ENGINE
-            </button>
-            <button onclick="clearRawText()" class="btn-cyber btn-dark">
-              CLEAR
-            </button>
-          </div>
-
-          <div id="parseStatusAlert" style="margin-top: 1rem; display: none; padding: 0.85rem; border-radius: var(--radius-button); font-weight: 700;"></div>
-        </div>
-
-        <!-- RIGHT: Live Parsed Cards Preview & Inline Overrides -->
-        <div class="cyber-card" style="padding: 1.5rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h3 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 900; text-transform: uppercase;">
-              STRUCTURED PREVIEW & INLINE OVERRIDES (<span id="parsedCount">0</span>)
-            </h3>
-            <button id="btnSaveToDb" onclick="saveParsedQuizToDatabase()" class="btn-cyber btn-lime" style="display: none; align-items: center; gap: 0.5rem;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-              SAVE TO DATABASE
-            </button>
-          </div>
-
-          <div id="parsedCardsContainer" style="max-height: 560px; overflow-y: auto;">
-            <div style="color: var(--text-muted); padding: 3rem 1rem; text-align: center; font-size: 1.1rem;">
-              Paste quiz text on the left and click "PARSE WITH ENGINE" to preview questions.
+          <div class="card">
+            <div class="spread mb-4">
+              <div>
+                <h2 style="font-size: 1.25rem;">Preview <span class="muted num" id="previewCount"></span></h2>
+                <p class="muted mt-1" style="font-size: 0.9375rem;">Edit anything here. The selected choice is the correct answer.</p>
+              </div>
+              <button type="button" class="btn btn-primary" id="saveButton" hidden>Save quiz</button>
+            </div>
+            <div id="parseMessages" class="stack-sm mb-4" hidden></div>
+            <div class="preview-scroll" id="preview">
+              <div class="empty"><p>Your questions will show up here after you preview them.</p></div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
 
-    <!-- TAB 2: SAVED QUIZZES BANK -->
-    <div id="tabSaved" class="tab-content">
-      <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
-        <div>
-          <h2 style="font-family: var(--font-display); font-size: 2rem; font-weight: 900; text-transform: uppercase;">
-            SAVED QUIZ BANKS
-          </h2>
-          <p style="color: var(--text-secondary);">
-            Quizzes stored securely in PostgreSQL persistent storage. Launch live rooms with a single click.
-          </p>
+      <!-- Quizzes -->
+      <section class="panel" id="panelQuizzes" role="tabpanel">
+        <div class="spread mb-6">
+          <div>
+            <h2>Quizzes</h2>
+            <p class="muted mt-1">Hosts can start a game from any quiz here.</p>
+          </div>
+          <button type="button" class="btn btn-primary" data-goto="panelCreate"><span data-icon="plus"></span>New quiz</button>
         </div>
-        <button onclick="switchAdminTab('tabIngest')" class="btn-cyber btn-lime" style="display: inline-flex; align-items: center; gap: 0.4rem;">
-          <span>+</span> CREATE NEW QUIZ
-        </button>
-      </div>
+        <div class="grid-auto" id="quizList"></div>
+      </section>
 
-      <div id="savedQuizzesGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1.5rem;">
-        <!-- Injected saved quizzes -->
-      </div>
-    </div>
-
-    <!-- TAB 3: PERSISTENT TOURNAMENT LEADERBOARD -->
-    <div id="tabLeaderboard" class="tab-content">
-      <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-        <div>
-          <h2 style="font-family: var(--font-display); font-size: 2rem; font-weight: 900; text-transform: uppercase;">
-            PERSISTENT TOURNAMENT LEADERBOARD
-          </h2>
-          <p style="color: var(--text-secondary);">
-            Cumulative multi-session scoring deduplicated by Full Name + Organization. Tracks accuracy % and streaks.
-          </p>
+      <!-- Tournaments -->
+      <section class="panel" id="panelTournaments" role="tabpanel">
+        <div class="spread mb-6">
+          <div>
+            <h2>All tournaments</h2>
+            <p class="muted mt-1">Every host's tournaments. Open one to manage its sessions, players and results.</p>
+          </div>
+          <a class="btn btn-secondary" href="/host.html">Host view</a>
         </div>
-        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-          <a href="/api/leaderboard/export/csv" class="btn-cyber btn-dark" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            EXPORT CSV
-          </a>
-          <a href="/leaderboard.html" target="_blank" class="btn-cyber btn-lime" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-            PUBLIC STANDINGS
-          </a>
-          <a href="/api/leaderboard/export/csv" class="btn-cyber btn-dark" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            EXPORT CSV
-          </a>
-          <a href="/api/leaderboard/export/excel" class="btn-cyber btn-dark" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; flex-shrink: 0;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-            EXPORT EXCEL
-          </a>
-          <button onclick="resetLeaderboardConfirm()" class="btn-cyber btn-danger">
-            RESET SCORES
-          </button>
-        </div>
-      </div>
-
-      <!-- Filters Bar -->
-      <div class="cyber-card" style="padding: 1.25rem; margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 260px;">
-          <input type="text" id="leaderboardSearchInput" oninput="loadPersistentLeaderboard()" class="form-input-cyber" placeholder="Search by Player Name or Email/ID...">
-        </div>
-        <div style="width: 200px;">
-          <select id="leaderboardOrgSelect" onchange="loadPersistentLeaderboard()" class="form-input-cyber">
-            <option value="all">All Organizations</option>
-            <option value="global">Global</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Leaderboard Table -->
-      <div class="cyber-card" style="padding: 1.5rem;">
-        <div class="table-responsive">
-          <table class="data-table">
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Contender Name</th>
-              <th>Organization</th>
-              <th>Identifier</th>
-              <th>Total Points</th>
-              <th>Quizzes Played</th>
-              <th>Accuracy %</th>
-              <th>Highest Streak</th>
-              <th>Last Active</th>
-            </tr>
-          </thead>
-          <tbody id="leaderboardTableBody">
-            <!-- Dynamic contender rows -->
-          </tbody>
-        </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 4: ROLES & RBAC -->
-    <div id="tabRoles" class="tab-content">
-      <div class="cyber-card" style="max-width: 800px; margin: 0 auto; padding: 2.5rem;">
-        <h2 style="font-family: var(--font-display); font-size: 2rem; font-weight: 900; text-transform: uppercase; margin-bottom: 0.5rem;">
-          ROLE-BASED ACCESS CONTROL (RBAC)
-        </h2>
-        <p style="color: var(--text-secondary); margin-bottom: 2rem;">
-          Assign Admin and Host roles validated by JWT bearer authentication and role claims.
-        </p>
-
-        <div style="margin-bottom: 2rem; padding: 1.5rem; background: var(--bg-surface-elevated); border-radius: var(--radius-button); border: 1px solid var(--border-cyber);">
-          <h3 style="font-family: var(--font-display); font-size: 1.2rem; font-weight: 800; text-transform: uppercase; margin-bottom: 1rem;">
-            ASSIGN OR PROMOTE USER
-          </h3>
-          <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-            <input type="email" id="assignEmailInput" class="form-input-cyber" placeholder="User Email (e.g. host@groove.live)" style="flex: 1; min-width: 250px;">
-            <select id="assignRoleSelect" class="form-input-cyber" style="width: 160px;">
-              <option value="Host">Host</option>
-              <option value="Admin">Super Admin</option>
-            </select>
-            <button onclick="handleRoleAssign()" class="btn-cyber btn-lime">
-              UPDATE ROLE
-            </button>
+        <div class="card">
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>Tournament</th><th>Host</th><th class="right">Players</th><th class="right hide-sm">Sessions</th><th class="right">Open now</th><th class="hide-sm">Created</th></tr></thead>
+              <tbody id="tournamentTable"></tbody>
+            </table>
           </div>
         </div>
+      </section>
 
-        <h3 style="font-family: var(--font-display); font-size: 1.2rem; font-weight: 800; text-transform: uppercase; margin-bottom: 1rem;">
-          CURRENT PLATFORM USERS
-        </h3>
-        <div id="usersListContainer">
-          <!-- Users loaded dynamically -->
+      <!-- Live games -->
+      <section class="panel" id="panelGames" role="tabpanel">
+        <div class="spread mb-6">
+          <div>
+            <h2>Live games</h2>
+            <p class="muted mt-1">Every game currently running in memory, from any host.</p>
+          </div>
+          <button type="button" class="btn btn-ghost" id="refreshGames"><span data-icon="refresh"></span>Refresh</button>
         </div>
-      </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>PIN</th><th>Game</th><th class="hide-sm">Host</th><th>Status</th><th class="right">Players</th><th></th></tr></thead>
+              <tbody id="gamesTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Leaderboard -->
+      <section class="panel" id="panelLeaderboard" role="tabpanel">
+        <div class="spread mb-6">
+          <div>
+            <h2>All-time leaderboard</h2>
+            <p class="muted mt-1">Points from every finished game, grouped by player name.</p>
+          </div>
+          <div class="row-wrap">
+            <button type="button" class="btn btn-secondary" id="exportCsv"><span data-icon="download"></span>CSV</button>
+            <button type="button" class="btn btn-secondary" id="exportExcel"><span data-icon="download"></span>Excel</button>
+            <button type="button" class="btn btn-danger-ghost" id="resetLeaderboard">Reset scores…</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="mb-4" style="max-width: 360px;">
+            <label class="sr-only" for="lbSearch">Search players</label>
+            <input class="input" id="lbSearch" type="search" placeholder="Search by name or email">
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>#</th><th>Player</th><th class="hide-sm">Email / ID</th><th class="right">Points</th><th class="right hide-sm">Games</th><th class="right">Accuracy</th><th class="right hide-sm">Best streak</th><th class="hide-sm">Last played</th></tr></thead>
+              <tbody id="lbTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- People -->
+      <section class="panel" id="panelPeople" role="tabpanel">
+        <div class="mb-6">
+          <h2>People</h2>
+          <p class="muted mt-1"><strong>Players</strong> can save their details. <strong>Hosts</strong> can run games. <strong>Admins</strong> can also manage quizzes, scores and people.</p>
+        </div>
+        <div class="card">
+          <div class="mb-4" style="max-width: 360px;">
+            <label class="sr-only" for="peopleSearch">Search people</label>
+            <input class="input" id="peopleSearch" type="search" placeholder="Search by name or email">
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th class="hide-sm">Joined</th></tr></thead>
+              <tbody id="peopleTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </div>
+  </main>
 
-  </div>
-
-  <script src="/js/audio.js?v=3.5"></script>
-  <script src="/js/admin.js?v=3.5"></script>
+  <script src="/js/ui.js?v=4.3"></script>
+  <script src="/js/admin.js?v=4.3"></script>
 </body>
 </html>

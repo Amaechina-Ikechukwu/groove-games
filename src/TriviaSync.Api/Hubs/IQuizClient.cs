@@ -14,5 +14,7 @@ public interface IQuizClient
     Task PlayerRoundResult(object payload);
     Task LeaderboardUpdate(object payload);
     Task GameEnded(object payload);
+    Task SessionClosed(object payload);
+    Task SignInRequired(object payload);
     Task ErrorNotification(string message);
 }

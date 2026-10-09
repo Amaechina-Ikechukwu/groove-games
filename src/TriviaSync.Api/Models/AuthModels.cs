@@ -4,8 +4,6 @@ public class LoginRequest
 {
     public string Email { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
-    public string? Portal { get; set; }
-    public string? RequestedRole { get; set; }
 }
 
 public class RegisterRequest
@@ -13,7 +11,7 @@ public class RegisterRequest
     public string Email { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
-    public string Role { get; set; } = "Player"; // "Player" or "Host"
+    public string Role { get; set; } = "Player"; // Self-registration allows "Player" or "Host" only
 }
 
 public class AuthResponse
@@ -22,7 +20,7 @@ public class AuthResponse
     public string Uid { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
-    public string Role { get; set; } = "Host"; // "SuperAdmin", "Admin", "Host", "Player"
+    public string Role { get; set; } = "Player"; // "Admin", "Host", "Player"
 }
 
 public class RoleAssignRequest

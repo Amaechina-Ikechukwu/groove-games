@@ -138,6 +138,151 @@ public class RoundAuditEntity
     public DateTime RecordedAt { get; set; } = DateTime.UtcNow;
 }
 
+[Table("users")]
+public class UserEntity
+{
+    [Key]
+    [Column("email")]
+    public string Email { get; set; } = string.Empty;
+
+    [Column("display_name")]
+    public string DisplayName { get; set; } = string.Empty;
+
+    [Column("password_hash")]
+    public string PasswordHash { get; set; } = string.Empty;
+
+    [Column("role")]
+    public string Role { get; set; } = "Player";
+
+    [Column("created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+[Table("tournaments")]
+public class TournamentEntity
+{
+    [Key]
+    [Column("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [Column("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [Column("description")]
+    public string Description { get; set; } = string.Empty;
+
+    [Column("host_email")]
+    public string HostEmail { get; set; } = string.Empty;
+
+    [Column("join_code")]
+    public string JoinCode { get; set; } = string.Empty;
+
+    [Column("created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+[Table("tournament_members")]
+public class TournamentMemberEntity
+{
+    [Column("tournament_id")]
+    public string TournamentId { get; set; } = string.Empty;
+
+    [Column("user_email")]
+    public string UserEmail { get; set; } = string.Empty;
+
+    [Column("display_name")]
+    public string DisplayName { get; set; } = string.Empty;
+
+    [Column("joined_at")]
+    public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
+}
+
+[Table("tournament_sessions")]
+public class TournamentSessionEntity
+{
+    [Key]
+    [Column("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [Column("tournament_id")]
+    public string TournamentId { get; set; } = string.Empty;
+
+    [Column("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [Column("quiz_id")]
+    public string QuizId { get; set; } = string.Empty;
+
+    /// <summary>Questions are copied when the session is created so later quiz edits can't change it.</summary>
+    [Column("quiz_json", TypeName = "text")]
+    public string QuizJson { get; set; } = "{}";
+
+    /// <summary>"Live" (host-run with a PIN) or "SelfPaced" (members play on their own before a deadline).</summary>
+    [Column("mode")]
+    public string Mode { get; set; } = "Live";
+
+    /// <summary>"Draft", "Open" (self-paced), "Live" (live game running), or "Closed".</summary>
+    [Column("status")]
+    public string Status { get; set; } = "Draft";
+
+    [Column("closes_at")]
+    public DateTime? ClosesAt { get; set; }
+
+    [Column("live_pin")]
+    public string? LivePin { get; set; }
+
+    [Column("created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+[Table("session_attempts")]
+public class SessionAttemptEntity
+{
+    [Key]
+    [Column("id")]
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+
+    [Column("session_id")]
+    public string SessionId { get; set; } = string.Empty;
+
+    [Column("tournament_id")]
+    public string TournamentId { get; set; } = string.Empty;
+
+    [Column("user_email")]
+    public string UserEmail { get; set; } = string.Empty;
+
+    [Column("display_name")]
+    public string DisplayName { get; set; } = string.Empty;
+
+    [Column("started_at")]
+    public DateTime StartedAt { get; set; } = DateTime.UtcNow;
+
+    [Column("completed_at")]
+    public DateTime? CompletedAt { get; set; }
+
+    [Column("score")]
+    public int Score { get; set; }
+
+    [Column("correct_count")]
+    public int CorrectCount { get; set; }
+
+    [Column("answered_count")]
+    public int AnsweredCount { get; set; }
+
+    [Column("question_count")]
+    public int QuestionCount { get; set; }
+
+    /// <summary>Index of the question currently being shown (self-paced), and when the server showed it.</summary>
+    [Column("current_index")]
+    public int CurrentIndex { get; set; }
+
+    [Column("current_served_at")]
+    public DateTime? CurrentServedAt { get; set; }
+
+    [Column("answers_json", TypeName = "text")]
+    public string AnswersJson { get; set; } = "[]";
+}
+
 public class TriviaDbContext : DbContext
 {
     public TriviaDbContext(DbContextOptions<TriviaDbContext> options) : base(options)
@@ -148,10 +293,18 @@ public class TriviaDbContext : DbContext
     public DbSet<GameSessionEntity> GameSessions => Set<GameSessionEntity>();
     public DbSet<PersistentPlayer> Players => Set<PersistentPlayer>();
     public DbSet<RoundAuditEntity> RoundAudits => Set<RoundAuditEntity>();
+    public DbSet<UserEntity> Users => Set<UserEntity>();
+    public DbSet<TournamentEntity> Tournaments => Set<TournamentEntity>();
+    public DbSet<TournamentMemberEntity> TournamentMembers => Set<TournamentMemberEntity>();
+    public DbSet<TournamentSessionEntity> TournamentSessions => Set<TournamentSessionEntity>();
+    public DbSet<SessionAttemptEntity> SessionAttempts => Set<SessionAttemptEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<TournamentMemberEntity>()
+            .HasKey(m => new { m.TournamentId, m.UserEmail });
 
         modelBuilder.Entity<PersistentPlayer>()
             .HasIndex(p => p.HostId);

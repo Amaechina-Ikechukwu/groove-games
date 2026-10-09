@@ -70,7 +70,7 @@ Deploying to Dokploy takes less than 3 minutes. See [DOKPLOY_DEPLOYMENT.md](DOKP
 ## 💻 Running Locally in Docker
 
 ```bash
-docker compose up --build
+GROOVE_JWT_KEY="$(openssl rand -base64 48)" GROOVE_ADMIN_EMAIL=you@example.com GROOVE_ADMIN_PASSWORD=choose-a-strong-password docker compose up --build
 ```
 
 Access the applications immediately:
@@ -88,14 +88,23 @@ Access the applications immediately:
 dotnet test
 ```
 
-All 11 unit tests verify parser edge cases, scoring decay algorithms, reconnect states, and PostgreSQL data persistence.
+The tests cover the parser, scoring, reconnects, persistence, and auth/RBAC rules (no self-assigned roles, hashed passwords, session ownership).
 
 ---
 
-## 🎮 Multi-Session Tournament Flow
+## 🎮 Tournaments
 
-1. **Host Signs In:** Access `host.html` (`host@groove.live` / `HostPass123!`).
-2. **Configure Sessions:** Select **Multi-Session Tournament**, choose number of sessions (e.g. 3 sessions), name the tournament, and pick quiz banks.
-3. **Unique PINs Generated:** Each session receives an independent 6-digit access code (e.g., `PIN 748291`, `PIN 381942`, `PIN 910243`).
-4. **Players Join & Bind:** Players enter their name and the active PIN. Their profile is tied to this Host.
-5. **Leaderboard Across All Sessions:** Real-time round podiums during gameplay, plus a permanent cumulative leaderboard accessible via **"🏆 LEADERBOARD"** showing combined scores, quizzes played, accuracy %, and streaks across all sessions.
+**Roles**
+- **Admins** see and manage everything: every host's tournaments, every running game, all quizzes, scores and people.
+- **Hosts** create tournaments and manage their own: sessions, players and results.
+- **Players** join tournaments with a code, play their sessions, and see their history on **Your tournaments** (`/tournaments.html`).
+
+**Flow**
+1. A host creates a tournament on `/host.html` and shares its 6-character join code (or the invite link).
+2. Players sign in and join with the code.
+3. The host adds sessions, each one of two kinds:
+   - **Live game**: the host clicks *Run live* and players join with a PIN. Signed-in players who join with the PIN are added to the tournament automatically.
+   - **Self-paced**: the host opens it until a deadline (like Kahoot's assign mode). Members play on their own time with one attempt each. The server times every question, so refreshing doesn't reset the clock.
+4. Scores from every session add up in the tournament standings. **Standings are public** at `/tournament.html?id=…` and on `/leaderboard.html`. Player emails are only shown to the tournament's host and admins.
+
+**Quick games** are one-off live games with no tournament. Anyone with the PIN can play without an account, and scores go to the all-time leaderboard.

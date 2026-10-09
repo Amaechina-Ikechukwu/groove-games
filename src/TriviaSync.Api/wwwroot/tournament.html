@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tournament · Groove</title>
+  <link rel="stylesheet" href="/css/style.css?v=4.3">
+  <style>
+    .panel { display: none; }
+    .panel.is-active { display: block; animation: fade-in .15s ease-out; }
+    .head-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px; align-items: start; }
+    @media (max-width: 760px) { .head-grid { grid-template-columns: minmax(0, 1fr); } }
+    .code-card { min-width: 280px; }
+    .code-card .pin { font-size: 2.5rem; }
+    .session { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 20px; align-items: center; }
+    .session + .session { margin-top: 12px; }
+    .session h3 { overflow-wrap: anywhere; }
+    .session-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+    .session-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    @media (max-width: 640px) { .session { grid-template-columns: minmax(0, 1fr); } .session-actions { justify-content: flex-start; } }
+    .quick-picks { display: flex; gap: 6px; flex-wrap: wrap; }
+  </style>
+</head>
+<body class="has-tabbar">
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a href="/" class="brand" aria-label="Groove home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span class="brand-name">Groove</span>
+      </a>
+      <nav class="nav" aria-label="Main">
+        <a href="/player.html">Join</a>
+        <a href="/tournaments.html">Tournaments</a>
+        <a href="/host.html">Host</a>
+        <a href="/leaderboard.html">Standings</a>
+        <a href="/admin.html" data-admin-only hidden>Admin</a>
+      </nav>
+      <div class="account" id="account"></div>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="container">
+      <div id="loading" class="muted">Loading…</div>
+
+      <div id="content" hidden>
+        <div class="head-grid mb-6">
+          <div>
+            <p class="eyebrow mb-2" id="tHost"></p>
+            <h1 id="tName"></h1>
+            <p class="muted mt-2" id="tDescription"></p>
+            <div class="row-wrap mt-4" id="tActions"></div>
+          </div>
+          <div class="card card-lime code-card" id="codeCard" hidden>
+            <p class="eyebrow">Players join with code</p>
+            <div class="pin mt-1" id="joinCode"></div>
+            <div class="row-wrap mt-3">
+              <button type="button" class="btn btn-dark btn-sm" id="copyLink"><span data-icon="link"></span>Copy invite link</button>
+              <button type="button" class="btn btn-dark btn-sm" id="copyCode"><span data-icon="copy"></span>Code</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout mb-6" id="publicNote" hidden></div>
+
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab" data-tab="panelSessions">Sessions</button>
+          <button class="tab" role="tab" data-tab="panelStandings">Standings</button>
+          <button class="tab" role="tab" data-tab="panelMembers" hidden>Players <span class="count" id="memberCount">0</span></button>
+        </div>
+
+        <section class="panel" id="panelSessions" role="tabpanel">
+          <div class="spread mb-4" id="sessionsHead" hidden>
+            <p class="muted">Live sessions run on your screen with a PIN. Self-paced sessions are open until a deadline and players go at their own pace.</p>
+            <button type="button" class="btn btn-primary" id="addSession"><span data-icon="plus"></span>Add session</button>
+          </div>
+          <div id="sessionList"></div>
+        </section>
+
+        <section class="panel" id="panelStandings" role="tabpanel">
+          <div class="podium mb-6" id="podium" hidden></div>
+          <div class="card">
+            <div class="spread mb-2">
+              <p class="muted" style="font-size: 0.9375rem;">Total points across every session. Anyone can see these standings.</p>
+              <span class="subtle" id="standingsUpdated"></span>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>#</th><th>Player</th><th class="right">Points</th><th class="right hide-sm">Sessions</th><th class="right">Correct</th></tr></thead>
+                <tbody id="standingsTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" id="panelMembers" role="tabpanel">
+          <div class="card">
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>Player</th><th class="hide-sm">Email</th><th class="right">Points</th><th class="hide-sm">Joined</th><th></th></tr></thead>
+                <tbody id="membersTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div id="notFound" hidden>
+        <div class="empty"><h3>Tournament not found</h3><p>It may have been deleted. <a href="/tournaments.html">Your tournaments</a></p></div>
+      </div>
+    </div>
+  </main>
+
+  <nav class="tabbar" aria-label="Main">
+    <a href="/"><span data-icon="home"></span>Home</a>
+    <a href="/player.html"><span data-icon="gamepad"></span>Play</a>
+    <a href="/tournaments.html" aria-current="page"><span data-icon="users"></span>Tournaments</a>
+    <a href="/leaderboard.html"><span data-icon="trophy"></span>Standings</a>
+  </nav>
+
+  <script src="/js/ui.js?v=4.3"></script>
+  <script src="/js/tournament.js?v=4.3"></script>
+</body>
+</html>

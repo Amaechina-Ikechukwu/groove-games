@@ -39,6 +39,9 @@ public class GameSession
     public int SessionNumber { get; set; } = 1;
     public int TotalSessions { get; set; } = 1;
 
+    /// <summary>Set when this live game is a session of a persistent tournament.</summary>
+    public string TournamentSessionId { get; set; } = string.Empty;
+
     public GameState State { get; set; } = GameState.Lobby;
     public int CurrentQuestionIndex { get; set; } = -1;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

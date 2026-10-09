@@ -1,889 +1,799 @@
-// Groove Host Stadium Logic - Tournament & Multi-Session Edition
-let connection = null;
-let currentPin = '';
-let currentHostId = 'host@groove.live';
-let currentSessionData = null;
-let currentQuestionData = null;
-let activeTournamentSessions = [];
+// Groove host screen
+(function () {
+  'use strict';
 
-const CHOICE_GLYPHS = ['▲', '◆', '●', '■', '⬡', '★'];
+  const $ = id => document.getElementById(id);
 
-function getHostAuthHeaders() {
-  const token = sessionStorage.getItem('groove_host_token') || sessionStorage.getItem('groove_admin_token');
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
-}
+  let connection = null;
+  let pin = '';
+  let room = null;            // last RoomState
+  let state = '';             // current game state name
+  let players = [];           // connected players
+  let question = null;        // current QuestionStarted payload
+  let questionTotal = 20;
+  let answeredCount = 0;
+  let attaching = false;
+  let countdownTimer = null;
 
-function checkHostAuth() {
-  const token = sessionStorage.getItem('groove_host_token') || sessionStorage.getItem('groove_admin_token');
-  const email = sessionStorage.getItem('groove_host_email') || sessionStorage.getItem('groove_admin_email');
-  const emailDisplay = document.getElementById('hostEmailDisplay');
-  const logoutBtn = document.getElementById('hostLogoutBtn');
-  const banner = document.getElementById('hostAuthBanner');
+  const IN_PROGRESS = ['QuestionCountdown', 'QuestionActive', 'AnswerReveal', 'RoundLeaderboard'];
 
-  if (token && email) {
-    currentHostId = email;
-    if (emailDisplay) emailDisplay.textContent = email;
-    if (logoutBtn) logoutBtn.style.display = 'inline-flex';
-    if (banner) banner.style.display = 'none';
-    loadSavedQuizzes();
-    return true;
-  } else {
-    if (emailDisplay) emailDisplay.textContent = 'Sign In as Host';
-    if (logoutBtn) logoutBtn.style.display = 'none';
-    if (banner) banner.style.display = 'flex';
-    return false;
-  }
-}
-
-function switchHostAuthTab(tab) {
-  const loginBtn = document.getElementById('tabHostLoginBtn');
-  const regBtn = document.getElementById('tabHostRegisterBtn');
-  const loginForm = document.getElementById('hostLoginForm');
-  const regForm = document.getElementById('hostRegisterForm');
-  const alertBox = document.getElementById('hostAuthAlert');
-  if (alertBox) alertBox.style.display = 'none';
-
-  if (tab === 'login') {
-    if (loginBtn) loginBtn.classList.add('active');
-    if (regBtn) regBtn.classList.remove('active');
-    if (loginForm) loginForm.style.display = 'block';
-    if (regForm) regForm.style.display = 'none';
-  } else {
-    if (loginBtn) loginBtn.classList.remove('active');
-    if (regBtn) regBtn.classList.add('active');
-    if (loginForm) loginForm.style.display = 'none';
-    if (regForm) regForm.style.display = 'block';
-  }
-}
-
-function setHostCreds(email, password) {
-  switchHostAuthTab('login');
-  document.getElementById('modalHostEmailInput').value = email;
-  document.getElementById('modalHostPasswordInput').value = password;
-}
-
-function hostLogout() {
-  sessionStorage.removeItem('groove_host_token');
-  sessionStorage.removeItem('groove_host_email');
-  checkHostAuth();
-  openHostAuthModal();
-}
-
-let hostOnboardStep = 1;
-
-function openHostOnboarding() {
-  hostOnboardStep = 1;
-  updateHostOnboardView();
-  const modal = document.getElementById('hostOnboardingModal');
-  if (modal) modal.classList.add('active');
-}
-
-function closeHostOnboarding(e) {
-  if (e && e.target !== e.currentTarget && !e.target.classList.contains('btn-cyber')) return;
-  const modal = document.getElementById('hostOnboardingModal');
-  if (modal) modal.classList.remove('active');
-  localStorage.setItem('groove_host_onboarded', 'true');
-  if (!checkHostAuth()) {
-    openHostAuthModal();
-  }
-}
-
-function updateHostOnboardView() {
-  for (let i = 1; i <= 3; i++) {
-    const slide = document.getElementById(`hSlide${i}`);
-    const dot = document.getElementById(`hDot${i}`);
-    if (slide) slide.classList.toggle('active', i === hostOnboardStep);
-    if (dot) dot.classList.toggle('active', i === hostOnboardStep);
+  // ---------------------------------------------------------------------------
+  // Views
+  // ---------------------------------------------------------------------------
+  function showView(id) {
+    document.querySelectorAll('.view').forEach(v => v.classList.toggle('is-active', v.id === id));
+    window.scrollTo(0, 0);
   }
 
-  const prevBtn = document.getElementById('btnHostOnboardPrev');
-  const nextBtn = document.getElementById('btnHostOnboardNext');
-  const pill = document.getElementById('hostStepPill');
-
-  if (prevBtn) prevBtn.style.visibility = (hostOnboardStep === 1) ? 'hidden' : 'visible';
-  if (nextBtn) nextBtn.textContent = (hostOnboardStep === 3) ? 'SIGN IN & DIRECT ARENA →' : 'NEXT →';
-
-  if (pill) {
-    if (hostOnboardStep === 1) pill.textContent = 'STEP 1 OF 3 • FACILITATOR OVERVIEW';
-    if (hostOnboardStep === 2) pill.textContent = 'STEP 2 OF 3 • ROOMS & TOURNAMENTS';
-    if (hostOnboardStep === 3) pill.textContent = 'STEP 3 OF 3 • LIVE DIRECTING & PODIUM';
-  }
-}
-
-function nextHostOnboardStep() {
-  if (hostOnboardStep < 3) {
-    hostOnboardStep++;
-    updateHostOnboardView();
-  } else {
-    closeHostOnboarding();
-  }
-}
-
-function prevHostOnboardStep() {
-  if (hostOnboardStep > 1) {
-    hostOnboardStep--;
-    updateHostOnboardView();
-  }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const isAuth = checkHostAuth();
-  if (!localStorage.getItem('groove_host_onboarded')) {
-    openHostOnboarding();
-  } else if (!isAuth) {
-    openHostAuthModal();
+  function showStage(id) {
+    document.querySelectorAll('.game-stage').forEach(s => s.classList.toggle('is-active', s.id === id));
   }
 
-  const params = new URLSearchParams(window.location.search);
-  const pinParam = params.get('pin');
-  if (pinParam) {
-    currentPin = pinParam.trim().toUpperCase();
-    initSignalRAndAttach();
+  const inGameView = () => $('viewGame').classList.contains('is-active');
+  const gameNeedsHost = () => inGameView() && (IN_PROGRESS.includes(state) || (state === 'Lobby' && players.length > 0));
+
+  function setUrl(params) {
+    const url = new URL(window.location.href);
+    url.search = '';
+    Object.entries(params || {}).forEach(([k, v]) => v && url.searchParams.set(k, v));
+    history.replaceState(null, '', url);
   }
-});
 
-function toggleSessionMode() {
-  const isMulti = document.getElementById('modeMulti').checked;
-  document.getElementById('multiSessionFields').style.display = isMulti ? 'block' : 'none';
-}
-
-function openHostAuthModal() {
-  const modal = document.getElementById('hostAuthModal');
-  if (modal) {
-    modal.classList.add('active');
-    setTimeout(() => {
-      const emailInput = document.getElementById('modalHostEmailInput');
-      if (emailInput && !emailInput.value) emailInput.focus();
-    }, 150);
-  }
-}
-
-function closeHostAuthModal() {
-  const modal = document.getElementById('hostAuthModal');
-  if (modal) modal.classList.remove('active');
-}
-
-async function handleHostLogin(e) {
-  e.preventDefault();
-  const email = document.getElementById('modalHostEmailInput').value.trim();
-  const password = document.getElementById('modalHostPasswordInput').value.trim();
-  const alertBox = document.getElementById('hostAuthAlert');
-  if (alertBox) alertBox.style.display = 'none';
-
-  try {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, portal: 'Host', requestedRole: 'Host' })
+  function renderAccount() {
+    UI.renderAccount($('account'), {
+      onSignIn: () => openSignIn('signin'),
+      onSignOut: async () => {
+        const warning = gameNeedsHost()
+          ? "Your game keeps running, but you won't be able to control it until you sign back in."
+          : null;
+        await UI.signOut({ warning });
+      },
     });
+  }
 
-    if (res.ok) {
-      const auth = await res.json();
-      if (auth.role !== 'Host' && auth.role !== 'Admin' && auth.role !== 'SuperAdmin') {
-        if (alertBox) {
-          alertBox.textContent = `Access denied. Role '${auth.role}' is not authorized to direct games as Host.`;
-          alertBox.style.display = 'block';
+  async function openSignIn(mode) {
+    const session = await UI.signIn({
+      title: mode === 'signup' ? 'Create a host account' : 'Sign in to host',
+      signupRole: 'Host',
+      startWith: mode,
+    });
+    if (session) UI.toast(`Signed in as ${session.displayName || session.email}`, 'success');
+  }
+
+  function route() {
+    renderAccount();
+    const session = Session.get();
+    if (!session) return showView('viewGate');
+    if (!Session.canHost(session)) {
+      $('upgradeEmail').textContent = session.email;
+      return showView('viewUpgrade');
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const pinParam = params.get('pin');
+
+    if (pinParam) {
+      attach(pinParam.trim().toUpperCase());
+    } else {
+      showSetup();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Upgrade player -> host
+  // ---------------------------------------------------------------------------
+  async function becomeHost() {
+    const s = Session.get();
+    const ok = await UI.confirm({
+      title: 'Switch to a host account?',
+      html: `<p><strong>${UI.escape(s.email)}</strong> will be able to create and run games. You can still join games as a player.</p>`,
+      confirmText: 'Become a host',
+    });
+    if (!ok) return;
+    try {
+      const auth = await UI.busy($('upgradeButton'), () => UI.api('/api/auth/become-host', { method: 'POST' }));
+      Session.set(auth);
+      UI.toast('You can host games now', 'success');
+    } catch (err) {
+      UI.toast(err.message, 'error');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Setup
+  // ---------------------------------------------------------------------------
+  function showSetup() {
+    setUrl({});
+    showView('viewSetup');
+    loadTournaments();
+    loadQuizzes();
+    loadRunning();
+  }
+
+  async function loadQuizzes() {
+    const select = $('quizSelect');
+    const hint = $('quizHint');
+    try {
+      const quizzes = await UI.api('/api/quizzes');
+      if (!quizzes.length) {
+        select.innerHTML = '<option value="">No quizzes yet</option>';
+        select.disabled = true;
+        hint.innerHTML = Session.isAdmin()
+          ? 'Add one in <a href="/admin.html">Admin</a> first.'
+          : 'Ask an admin to add a quiz first.';
+        $('createButton').disabled = true;
+        return;
+      }
+      const previous = select.value;
+      select.disabled = false;
+      $('createButton').disabled = false;
+      select.innerHTML = quizzes.map(q =>
+        `<option value="${UI.escape(q.id)}">${UI.escape(q.title)} · ${q.questions.length} question${q.questions.length === 1 ? '' : 's'}</option>`).join('');
+      if (previous && quizzes.some(q => q.id === previous)) select.value = previous;
+      hint.textContent = '';
+    } catch (err) {
+      select.innerHTML = '<option value="">Couldn\'t load quizzes</option>';
+      hint.textContent = err.message;
+      if (err.status === 401) route();
+    }
+  }
+
+  const STATE_LABELS = {
+    Lobby: ['Waiting for players', 'badge-accent'],
+    QuestionCountdown: ['In progress', 'badge-success'],
+    QuestionActive: ['In progress', 'badge-success'],
+    AnswerReveal: ['In progress', 'badge-success'],
+    RoundLeaderboard: ['In progress', 'badge-success'],
+    GameEnded: ['Finished', ''],
+  };
+
+  async function loadRunning() {
+    const list = $('runningList');
+    try {
+      const sessions = await UI.api('/api/sessions');
+      if (!sessions.length) {
+        list.innerHTML = '<div class="empty"><p>No games running. Games you create show up here so you can get back to them.</p></div>';
+        return;
+      }
+      list.innerHTML = sessions.map(s => {
+        const [label, cls] = STATE_LABELS[s.state] || [s.state, ''];
+        const round = s.sessionType === 'Tournament' ? `${s.tournamentName} · ` : '';
+        return `
+          <div class="running-item">
+            <span class="pin">${UI.escape(s.pin)}</span>
+            <div class="meta">
+              <div style="font-weight: 600;">${UI.escape(s.quizTitle)}</div>
+              <div class="subtle">${UI.escape(round)}${s.connectedPlayers} player${s.connectedPlayers === 1 ? '' : 's'} · <span class="badge ${cls}">${label}</span></div>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" data-open="${UI.escape(s.pin)}">Open</button>
+            <button type="button" class="btn btn-ghost btn-icon btn-sm" data-end="${UI.escape(s.pin)}" data-state="${UI.escape(s.state)}" data-players="${s.connectedPlayers}" aria-label="End game ${UI.escape(s.pin)}" title="End game">${UI.icon('trash')}</button>
+          </div>`;
+      }).join('');
+      list.querySelectorAll('[data-open]').forEach(b => { b.onclick = () => attach(b.dataset.open); });
+      list.querySelectorAll('[data-end]').forEach(b => {
+        b.onclick = async () => {
+          if (await endGame(b.dataset.end, b.dataset.state, Number(b.dataset.players))) loadRunning();
+        };
+      });
+    } catch (err) {
+      list.innerHTML = `<p class="subtle">${UI.escape(err.message)}</p>`;
+    }
+  }
+
+  async function createGame(e) {
+    e.preventDefault();
+    const quizId = $('quizSelect').value;
+    if (!quizId) {
+      UI.toast('Pick a quiz first.', 'error');
+      return;
+    }
+    const body = { quizId, autoAdvance: $('autoAdvance').checked, sessionType: 'Single' };
+
+    try {
+      const data = await UI.busy($('createButton'), () => UI.api('/api/sessions', { method: 'POST', body }));
+      attach(data.pin);
+    } catch (err) {
+      UI.toast(err.message, 'error');
+      if (err.status === 401) route();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tournaments
+  // ---------------------------------------------------------------------------
+  async function loadTournaments() {
+    const list = $('tournamentList');
+    const admin = Session.isAdmin();
+    $('tournamentsHeading').textContent = admin ? 'All tournaments' : 'Your tournaments';
+    try {
+      const items = await UI.api('/api/tournaments/hosting');
+      if (!items.length) {
+        list.innerHTML = '<div class="empty" style="grid-column: 1 / -1;"><h3>No tournaments yet</h3><p>Create one, share its code, then add live games or self-paced sessions.</p></div>';
+        return;
+      }
+      list.innerHTML = items.map(t => `
+        <div class="card t-card">
+          <div class="spread mb-1">
+            <h3><a href="/tournament.html?id=${encodeURIComponent(t.id)}" style="color: inherit; text-decoration: none;">${UI.escape(t.name)}</a></h3>
+            ${t.openCount ? `<span class="badge badge-live">${t.openCount} open</span>` : ''}
+          </div>
+          <p class="subtle">${admin ? `${UI.escape(t.hostName)} · ` : ''}${t.memberCount} player${t.memberCount === 1 ? '' : 's'} · ${t.sessionCount} session${t.sessionCount === 1 ? '' : 's'}</p>
+          <div class="row mt-4">
+            <a class="btn btn-secondary btn-sm" href="/tournament.html?id=${encodeURIComponent(t.id)}">Manage</a>
+            <span class="grow"></span>
+            <button type="button" class="btn btn-danger-ghost btn-sm" data-delete="${UI.escape(t.id)}">${UI.icon('trash')}Delete</button>
+          </div>
+        </div>`).join('');
+      list.querySelectorAll('[data-delete]').forEach(b => {
+        b.onclick = () => deleteTournament(items.find(t => t.id === b.dataset.delete));
+      });
+    } catch (err) {
+      list.innerHTML = `<p class="subtle">${UI.escape(err.message)}</p>`;
+    }
+  }
+
+  async function deleteTournament(t) {
+    const parts = [];
+    if (t.sessionCount) parts.push(`${t.sessionCount} session${t.sessionCount === 1 ? '' : 's'} and their results`);
+    if (t.memberCount) parts.push(`${t.memberCount} player membership${t.memberCount === 1 ? '' : 's'}`);
+    const ok = await UI.confirm({
+      title: `Delete ${t.name}?`,
+      message: `${parts.length ? `This permanently deletes ${parts.join(' and ')}. ` : ''}Any live game in it ends for everyone. This can't be undone.`,
+      confirmText: 'Delete tournament',
+      danger: true,
+      requireText: 'delete',
+    });
+    if (!ok) return;
+    try {
+      await UI.api(`/api/tournaments/${encodeURIComponent(t.id)}`, { method: 'DELETE' });
+      UI.toast(`Deleted ${t.name}`, 'success');
+      loadTournaments();
+      loadRunning();
+    } catch (err) {
+      UI.toast(err.message, 'error');
+    }
+  }
+
+  function newTournament() {
+    UI.openDialog({
+      labelledBy: 'newTitle',
+      render(el, close) {
+        el.innerHTML = `
+          <h2 class="dialog-title" id="newTitle">New tournament</h2>
+          <p class="dialog-body">You'll get a code to share. Players who join can play its sessions and see their scores add up.</p>
+          <form class="stack mt-4" novalidate>
+            <div class="field"><label class="label" for="ntName">Name</label>
+              <input class="input" id="ntName" maxlength="80" placeholder="e.g. Friday league, spring term"></div>
+            <div class="field"><label class="label" for="ntDesc">Description <span class="subtle">(optional)</span></label>
+              <textarea class="textarea" id="ntDesc" maxlength="300" style="min-height: 80px;"></textarea></div>
+            <div class="dialog-actions">
+              <button type="button" class="btn btn-secondary" data-cancel>Cancel</button>
+              <button type="submit" class="btn btn-primary">Create tournament</button>
+            </div>
+          </form>`;
+        el.querySelector('[data-cancel]').onclick = () => close();
+        el.querySelector('#ntName').setAttribute('autofocus', '');
+        el.querySelector('form').onsubmit = async e => {
+          e.preventDefault();
+          const name = el.querySelector('#ntName').value.trim();
+          if (name.length < 2) {
+            el.querySelector('#ntName').setAttribute('aria-invalid', 'true');
+            return UI.toast('Give the tournament a name.', 'error');
+          }
+          try {
+            const t = await UI.busy(el.querySelector('[type=submit]'), () => UI.api('/api/tournaments', {
+              method: 'POST', body: { name, description: el.querySelector('#ntDesc').value },
+            }));
+            close();
+            location.href = `/tournament.html?id=${encodeURIComponent(t.id)}`;
+          } catch (err) {
+            UI.toast(err.message, 'error');
+          }
+        };
+      },
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Connection & attaching to a game
+  // ---------------------------------------------------------------------------
+  function ensureConnection() {
+    if (connection) return connection;
+    connection = new signalR.HubConnectionBuilder()
+      .withUrl('/hubs/game', { accessTokenFactory: () => (Session.get() || {}).token || '' })
+      .withAutomaticReconnect([0, 1000, 2000, 5000, 10000, 15000])
+      .configureLogging(signalR.LogLevel.Warning)
+      .build();
+
+    connection.on('RoomState', onRoomState);
+    connection.on('PlayerJoined', onPlayerJoined);
+    connection.on('PlayerLeft', onPlayerLeft);
+    connection.on('QuestionCountdown', onQuestionCountdown);
+    connection.on('QuestionStarted', onQuestionStarted);
+    connection.on('TimerTick', onTimerTick);
+    connection.on('AnswerReceived', onAnswerReceived);
+    connection.on('RoundCompleted', onRoundCompleted);
+    connection.on('LeaderboardUpdate', onLeaderboardUpdate);
+    connection.on('GameEnded', onGameEnded);
+    connection.on('SessionClosed', () => {});
+    connection.on('ErrorNotification', onError);
+
+    connection.onreconnecting(() => { if (inGameView()) UI.toast('Connection lost. Reconnecting…'); });
+    connection.onreconnected(() => {
+      if (pin && inGameView()) {
+        connection.invoke('HostJoin', pin).catch(() => {});
+        UI.toast('Reconnected', 'success');
+      }
+    });
+    return connection;
+  }
+
+  async function attach(targetPin) {
+    pin = targetPin;
+    attaching = true;
+    const conn = ensureConnection();
+    try {
+      if (conn.state === signalR.HubConnectionState.Disconnected) {
+        await conn.start();
+      }
+      await conn.invoke('HostJoin', pin);
+    } catch (err) {
+      console.error(err);
+      attaching = false;
+      UI.toast("Couldn't connect to the game server.", 'error');
+      showSetup();
+    }
+  }
+
+  function leaveGame() {
+    if (connection && connection.state !== signalR.HubConnectionState.Disconnected) {
+      connection.stop().catch(() => {});
+    }
+    pin = '';
+    state = '';
+    room = null;
+    players = [];
+  }
+
+  async function backFromGame() {
+    if (gameNeedsHost()) {
+      const ok = await UI.confirm({
+        title: 'Leave the host screen?',
+        message: room && room.autoAdvance
+          ? "The game keeps running on its own. You can reopen it from Your running games."
+          : "The game keeps running, but it won't move on until you come back. You can reopen it from Your running games.",
+        confirmText: 'Leave',
+        cancelText: 'Stay',
+      });
+      if (!ok) return;
+    }
+    returnFromGame();
+  }
+
+  function returnFromGame() {
+    const tournamentGame = room && room.sessionType === 'Tournament' ? room.tournamentId : null;
+    leaveGame();
+    if (tournamentGame) location.href = `/tournament.html?id=${encodeURIComponent(tournamentGame)}`;
+    else showSetup();
+  }
+
+  function onError(message) {
+    if (attaching) {
+      attaching = false;
+      UI.toast(message, 'error');
+      leaveGame();
+      showSetup();
+      return;
+    }
+    UI.toast(message, 'error');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Game HUD
+  // ---------------------------------------------------------------------------
+  function joinLink(p) {
+    return `${window.location.origin}/player.html?pin=${encodeURIComponent(p)}`;
+  }
+
+  function renderQr(containerId, p, size) {
+    const el = $(containerId);
+    if (!el || typeof QRCode === 'undefined') return;
+    el.innerHTML = '';
+    new QRCode(el, { text: joinLink(p), width: size, height: size, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+  }
+
+  const isLastQuestion = () => room && question && question.questionNumber >= room.totalQuestions;
+
+  function updateHud() {
+    $('hudPlayers').lastElementChild.textContent = `${players.length} player${players.length === 1 ? '' : 's'}`;
+    const primary = $('hudPrimary');
+    const end = $('hudEnd');
+    primary.hidden = false;
+    primary.disabled = false;
+    end.textContent = 'End game';
+
+    switch (state) {
+      case 'Lobby':
+        primary.textContent = 'Start game';
+        break;
+      case 'QuestionCountdown':
+        primary.textContent = 'Starting…';
+        primary.disabled = true;
+        break;
+      case 'QuestionActive':
+        primary.textContent = 'End question';
+        break;
+      case 'AnswerReveal':
+      case 'RoundLeaderboard':
+        primary.textContent = isLastQuestion() ? 'Show final results' : 'Next question';
+        break;
+      case 'GameEnded':
+        primary.hidden = true;
+        end.textContent = 'Close game';
+        break;
+    }
+  }
+
+  async function onPrimary() {
+    if (window.sounds) window.sounds.init();
+    try {
+      if (state === 'Lobby') {
+        if (players.length === 0) {
+          const ok = await UI.confirm({
+            title: 'Nobody has joined yet',
+            message: 'Start anyway? Players can still join, but they will miss any questions that have already been asked.',
+            confirmText: 'Start anyway',
+          });
+          if (!ok) return;
         }
-        return;
+        await connection.invoke('StartQuiz', pin);
+      } else if (state === 'QuestionActive') {
+        if (answeredCount < players.length) {
+          const ok = await UI.confirm({
+            title: 'End this question now?',
+            message: `${answeredCount} of ${players.length} ${players.length === 1 ? 'player has' : 'players have'} answered. Anyone who hasn't answered gets no points for this question.`,
+            confirmText: 'End question',
+          });
+          if (!ok || state !== 'QuestionActive') return;
+        }
+        await connection.invoke('EndQuestion', pin);
+      } else if (state === 'AnswerReveal' || state === 'RoundLeaderboard') {
+        $('hudPrimary').disabled = true;
+        await connection.invoke('AdvanceQuestion', pin);
       }
-
-      currentHostId = auth.email;
-      sessionStorage.setItem('groove_host_email', auth.email);
-      sessionStorage.setItem('groove_host_token', auth.token);
-      checkHostAuth();
-      closeHostAuthModal();
-    } else {
-      const err = await res.json().catch(() => ({}));
-      if (alertBox) {
-        alertBox.textContent = err.message || 'Login failed. Please verify your host credentials.';
-        alertBox.style.display = 'block';
-      }
-    }
-  } catch (err) {
-    console.error(err);
-    if (alertBox) {
-      alertBox.textContent = 'Network error while attempting host login.';
-      alertBox.style.display = 'block';
+    } catch (err) {
+      console.error(err);
+      UI.toast("That didn't go through. Check your connection and try again.", 'error');
+      updateHud();
     }
   }
-}
 
-async function handleHostRegister(e) {
-  e.preventDefault();
-  const fullName = document.getElementById('modalHostRegisterName').value.trim();
-  const email = document.getElementById('modalHostRegisterEmail').value.trim();
-  const password = document.getElementById('modalHostRegisterPassword').value.trim();
-  const alertBox = document.getElementById('hostAuthAlert');
-  if (alertBox) alertBox.style.display = 'none';
-
-  if (!fullName || !email || !password) {
-    if (alertBox) {
-      alertBox.textContent = 'All fields are required.';
-      alertBox.style.display = 'block';
+  /** Ends (closes) a game after confirmation. Returns true if it was closed. */
+  async function endGame(targetPin, targetState, playerCount) {
+    const finished = targetState === 'GameEnded';
+    const ok = await UI.confirm(finished
+      ? {
+          title: 'Close this game?',
+          message: 'The PIN will stop working and the game will disappear from your list. Final scores are already saved.',
+          confirmText: 'Close game',
+        }
+      : {
+          title: 'End this game for everyone?',
+          message: `${playerCount === 1 ? 'The player in this game will be sent out. ' : playerCount ? `All ${playerCount} players will be sent out of the game. ` : ''}Scores from a game that hasn't finished are not added to the standings. This can't be undone.`,
+          confirmText: 'End game',
+          danger: true,
+        });
+    if (!ok) return false;
+    try {
+      await UI.api(`/api/sessions/${encodeURIComponent(targetPin)}`, { method: 'DELETE' });
+      UI.toast(finished ? 'Game closed' : 'Game ended', 'success');
+      return true;
+    } catch (err) {
+      UI.toast(err.message, 'error');
+      return false;
     }
-    return;
   }
 
-  try {
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fullName, email, password, role: 'Host' })
+  async function endCurrentGame() {
+    if (await endGame(pin, state, players.length)) {
+      returnFromGame();
+    }
+  }
+
+  function openQrDialog() {
+    UI.openDialog({
+      labelledBy: 'qrTitle',
+      render(el, close) {
+        el.innerHTML = `
+          <div class="dialog-head">
+            <h2 class="dialog-title" id="qrTitle">Scan to join</h2>
+            <button class="btn btn-ghost btn-icon btn-sm" data-close aria-label="Close">${UI.icon('x')}</button>
+          </div>
+          <div class="text-center">
+            <div class="qr-box" id="qrDialogCode"></div>
+            <p class="muted mt-4">or go to <strong>${UI.escape(window.location.host)}</strong> and enter</p>
+            <div class="pin mt-2" style="font-size: 3rem;">${UI.escape(pin)}</div>
+          </div>
+          <div class="dialog-actions"><button class="btn btn-secondary" data-copy>${UI.icon('link')}Copy join link</button></div>`;
+        el.querySelector('[data-close]').onclick = () => close();
+        el.querySelector('[data-copy]').onclick = () => UI.copyText(joinLink(pin), 'Join link copied');
+        renderQr('qrDialogCode', pin, 260);
+      },
     });
+  }
 
-    if (res.ok) {
-      const auth = await res.json();
-      currentHostId = auth.email;
-      sessionStorage.setItem('groove_host_email', auth.email);
-      sessionStorage.setItem('groove_host_token', auth.token);
-      checkHostAuth();
-      closeHostAuthModal();
+  // ---------------------------------------------------------------------------
+  // Players
+  // ---------------------------------------------------------------------------
+  function renderPlayers() {
+    $('lobbyCount').textContent = players.length;
+    const list = $('lobbyPlayers');
+    if (!players.length) {
+      list.innerHTML = '<div class="empty" style="width: 100%;"><p>Waiting for players to join…</p></div>';
     } else {
-      const err = await res.json().catch(() => ({}));
-      if (alertBox) {
-        alertBox.textContent = err.message || 'Registration failed. Try a different email or sign in.';
-        alertBox.style.display = 'block';
-      }
+      list.innerHTML = players.map(p => `
+        <span class="chip">${UI.escape(p.fullName)}
+          <button type="button" class="chip-remove" data-kick="${UI.escape(p.playerId)}" aria-label="Remove ${UI.escape(p.fullName)}">${UI.icon('x')}</button>
+        </span>`).join('');
+      list.querySelectorAll('[data-kick]').forEach(b => { b.onclick = () => kick(b.dataset.kick); });
     }
-  } catch (err) {
-    console.error(err);
-    if (alertBox) {
-      alertBox.textContent = 'Network error during host registration.';
-      alertBox.style.display = 'block';
+    updateHud();
+  }
+
+  async function kick(playerId) {
+    const p = players.find(x => x.playerId === playerId);
+    const name = p ? p.fullName : 'this player';
+    const ok = await UI.confirm({
+      title: `Remove ${name}?`,
+      message: 'They will be sent out of the game. They can rejoin with the PIN unless you end the game.',
+      confirmText: 'Remove',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await connection.invoke('KickPlayer', pin, playerId);
+      players = players.filter(x => x.playerId !== playerId);
+      renderPlayers();
+      UI.toast(`${name} removed`);
+    } catch (_) {
+      UI.toast(`Couldn't remove ${name}.`, 'error');
     }
   }
-}
 
-async function loadSavedQuizzes() {
-  try {
-    const res = await fetch('/api/quizzes', { headers: getHostAuthHeaders() });
-    if (res.ok) {
-      const quizzes = await res.json();
-      const select = document.getElementById('quizSelectDropdown');
-      select.innerHTML = '';
+  // ---------------------------------------------------------------------------
+  // Hub events
+  // ---------------------------------------------------------------------------
+  function onRoomState(r) {
+    attaching = false;
+    room = r;
+    pin = r.pin;
+    state = r.state;
+    players = r.allPlayers || [];
+    setUrl({ pin });
+    showView('viewGame');
 
-      if (quizzes.length === 0) {
-        select.innerHTML = '<option value="">No quizzes found. Create one in Admin portal.</option>';
-        return;
-      }
+    $('hudPin').textContent = r.pin;
+    $('lobbyPin').textContent = r.pin;
+    $('joinUrl').textContent = window.location.host;
+    $('hudTitle').textContent = r.title;
+    $('hudSub').textContent = r.sessionType === 'Tournament'
+      ? `${r.tournamentName} · ${r.totalQuestions} questions · players sign in to play`
+      : `${r.totalQuestions} questions`;
+    $('afterGame').textContent = r.sessionType === 'Tournament' ? 'Back to tournament' : 'Back to games';
+    renderQr('lobbyQr', r.pin, 200);
+    renderPlayers();
 
-      quizzes.forEach(q => {
-        const opt = document.createElement('option');
-        opt.value = q.id;
-        opt.textContent = `${q.title} (${q.questions.length} Questions)`;
-        select.appendChild(opt);
-      });
-    } else if (res.status === 401) {
-      const select = document.getElementById('quizSelectDropdown');
-      if (select) select.innerHTML = '<option value="">Sign in as Host/Admin to load saved quizzes</option>';
-    }
-  } catch (err) {
-    console.error('Error loading quizzes:', err);
-  }
-}
-
-function connectExistingPin() {
-  const pin = document.getElementById('existingPinInput').value.trim().toUpperCase();
-  if (pin) {
-    currentPin = pin;
-    initSignalRAndAttach();
-  }
-}
-
-async function launchNewSession() {
-  if (!checkHostAuth()) {
-    openHostAuthModal();
-    return;
-  }
-
-  const select = document.getElementById('quizSelectDropdown');
-  const quizId = select.value;
-  const isMulti = document.getElementById('modeMulti').checked;
-  const sessionCount = parseInt(document.getElementById('multiSessionCountSelect').value) || 1;
-  const tournamentName = document.getElementById('tournamentNameInput').value.trim() || 'Arena Tournament';
-  const autoAdvance = document.getElementById('autoAdvanceCheck').checked;
-
-  if (!quizId) {
-    alert('Please select a quiz to launch.');
-    return;
-  }
-
-  try {
-    const payload = {
-      quizId: quizId,
-      hostId: currentHostId,
-      autoAdvance: autoAdvance,
-      sessionType: isMulti ? 'MultiSession' : 'Single',
-      sessionCount: isMulti ? sessionCount : 1,
-      tournamentName: tournamentName
+    const stageFor = {
+      Lobby: 'stageLobby', QuestionCountdown: 'stageCountdown', QuestionActive: 'stageQuestion',
+      AnswerReveal: 'stageReveal', RoundLeaderboard: 'stageStandings', GameEnded: 'stagePodium',
     };
+    showStage(stageFor[r.state] || 'stageLobby');
+    if (r.state === 'AnswerReveal' || r.state === 'RoundLeaderboard') {
+      question = { questionNumber: r.currentQuestionIndex + 1 };
+      $('standingsList').innerHTML = '<p class="muted">Standings will show after the next question.</p>';
+      $('revealText').textContent = 'Waiting for the next question';
+      $('revealAnswers').innerHTML = '';
+    }
+    if (r.state === 'GameEnded') {
+      $('podium').innerHTML = '';
+      $('finalTable').innerHTML = '<tr><td colspan="3" class="empty-row">This game has finished. Results are in the standings.</td></tr>';
+    }
+    updateHud();
+  }
 
-    const res = await fetch('/api/sessions', {
-      method: 'POST',
-      headers: getHostAuthHeaders(),
-      body: JSON.stringify(payload)
-    });
+  function onPlayerJoined(data) {
+    if (data.allPlayers) players = data.allPlayers;
+    renderPlayers();
+    if (window.sounds) window.sounds.click();
+  }
 
-    if (res.ok) {
-      const data = await res.json();
-      console.log('Session creation response:', data);
+  function onPlayerLeft(data) {
+    players = players.filter(p => p.playerId !== data.playerId);
+    renderPlayers();
+  }
 
-      if (data.sessionType === 'MultiSession' && data.sessions && data.sessions.length > 1) {
-        // Multi-Session Tournament created!
-        activeTournamentSessions = data.sessions;
-        renderTournamentCodesDeck(data);
+  function onQuestionCountdown(data) {
+    state = 'QuestionCountdown';
+    question = { questionNumber: data.questionIndex };
+    showStage('stageCountdown');
+    $('countdownLabel').textContent = `Question ${data.questionIndex} of ${data.totalQuestions}`;
+    let n = data.countdownSeconds;
+    $('countdownNumber').textContent = n;
+    if (window.sounds) window.sounds.tick();
+    clearInterval(countdownTimer);
+    countdownTimer = setInterval(() => {
+      n--;
+      if (n > 0) {
+        $('countdownNumber').textContent = n;
+        if (window.sounds) window.sounds.tick();
       } else {
-        // Single session
-        currentPin = data.pin;
-        initSignalRAndAttach();
+        clearInterval(countdownTimer);
       }
-    } else {
-      const err = await res.json();
-      alert(err.message || 'Failed to create room.');
+    }, 1000);
+    updateHud();
+  }
+
+  function setTimer(remaining) {
+    const t = $('questionTimer');
+    t.querySelector('span').textContent = remaining;
+    t.style.setProperty('--p', Math.max(0, Math.min(1, remaining / (questionTotal || 1))));
+    t.classList.toggle('is-urgent', remaining <= 5);
+  }
+
+  function renderAnswers(container, choices, { correctIndex = -1, counts = null } = {}) {
+    container.innerHTML = choices.map((c, i) => {
+      const revealed = correctIndex >= 0;
+      const isCorrect = i === correctIndex;
+      const cls = revealed ? (isCorrect ? 'is-correct' : 'is-dimmed') : '';
+      const count = counts ? `<span class="answer-count">${counts[i] || 0}</span>` : '';
+      const mark = isCorrect ? `<span class="answer-mark">${UI.icon('check')}</span>` : '';
+      return `<div class="answer answer-${i % 6} ${cls}">${UI.shape(i)}<span class="answer-text">${UI.escape(c)}</span>${count}${mark}</div>`;
+    }).join('');
+  }
+
+  function onQuestionStarted(data) {
+    clearInterval(countdownTimer);
+    state = 'QuestionActive';
+    question = data;
+    questionTotal = data.timeLimit;
+    answeredCount = data.answeredCount || 0;
+    showStage('stageQuestion');
+
+    $('questionLabel').textContent = `Question ${data.questionNumber} of ${data.totalQuestions}`;
+    $('questionText').textContent = data.text;
+    $('answeredCount').textContent = `${answeredCount} of ${players.length} answered`;
+    setTimer(data.timeLimit);
+    renderAnswers($('questionAnswers'), data.choices);
+    updateHud();
+  }
+
+  function onTimerTick(data) {
+    if (state !== 'QuestionActive') return;
+    setTimer(data.remainingSeconds);
+    if (window.sounds) data.remainingSeconds <= 5 ? window.sounds.hurryTick() : window.sounds.tick();
+  }
+
+  function onAnswerReceived(data) {
+    answeredCount = data.totalAnswers;
+    $('answeredCount').textContent = `${data.totalAnswers} of ${data.totalPlayers} answered`;
+  }
+
+  function onRoundCompleted(data) {
+    state = 'AnswerReveal';
+    showStage('stageReveal');
+    const total = data.totalAnswers || 0;
+    const correct = (data.stats || [])[data.correctIndex] || 0;
+    $('revealLabel').textContent = question ? `Question ${question.questionNumber} of ${question.totalQuestions}` : '';
+    $('revealStats').textContent = total ? `${correct} of ${total} got it right` : 'No one answered';
+    $('revealText').textContent = question ? question.text : '';
+    if (question && question.choices) {
+      renderAnswers($('revealAnswers'), question.choices, { correctIndex: data.correctIndex, counts: data.stats });
     }
-  } catch (e) {
-    console.error(e);
-    alert('Network error while launching arena.');
+    if (window.sounds) window.sounds.correct();
+    updateHud();
   }
-}
 
-function renderTournamentCodesDeck(data) {
-  document.getElementById('hostStageSelect').classList.remove('active');
-  document.getElementById('tournamentCodesDeck').style.display = 'block';
-  document.getElementById('deckTournamentName').textContent = data.tournamentName || 'TOURNAMENT SESSIONS';
-
-  const container = document.getElementById('tournamentSessionsList');
-  container.innerHTML = '';
-
-  data.sessions.forEach((s, idx) => {
-    const card = document.createElement('div');
-    card.className = 'cyber-card';
-    card.style.padding = '1.75rem';
-    card.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-        <span style="font-family: var(--font-display); font-weight: 800; font-size: 0.8rem; background: var(--bg-surface-elevated); border: 1px solid var(--border-cyber); padding: 0.35rem 0.75rem; border-radius: 6px; color: var(--neon-lime);">SESSION ${s.sessionNumber} OF ${s.totalSessions}</span>
-        <span style="font-family: var(--font-display); font-weight: 800; font-size: 0.75rem; background: rgba(0, 230, 118, 0.12); border: 1px solid var(--tile-green); color: var(--tile-green); padding: 0.25rem 0.65rem; border-radius: 6px;">READY</span>
-      </div>
-
-      <h3 style="font-family: var(--font-display); font-size: 1.3rem; font-weight: 900; text-transform: uppercase; margin-bottom: 1rem;">
-        ${escapeHtml(s.quizTitle)}
-      </h3>
-
-      <div class="deck-card-code-row">
-        <div style="flex: 1; min-width: 0;">
-          <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-display); text-transform: uppercase;">CONTENDER ACCESS CODE</div>
-          <div style="font-family: var(--font-display); font-size: 2.2rem; font-weight: 900; color: var(--neon-lime); letter-spacing: 4px; line-height: 1.1; margin: 0.2rem 0;">
-            ${s.pin}
-          </div>
-          <div style="font-size: 0.75rem; color: var(--text-secondary); word-break: break-all;">
-            player.html?pin=${s.pin}
-          </div>
+  function onLeaderboardUpdate(data) {
+    state = 'RoundLeaderboard';
+    question = Object.assign({}, question, { questionNumber: data.questionNumber, totalQuestions: data.totalQuestions });
+    showStage('stageStandings');
+    $('standingsLabel').textContent = `After question ${data.questionNumber} of ${data.totalQuestions}`;
+    const list = $('standingsList');
+    const top = data.topPlayers || [];
+    list.innerHTML = top.length ? top.map((p, i) => `
+      <div class="standing" style="animation-delay: ${i * 40}ms">
+        ${UI.rankBadge(p.rank || i + 1)}
+        <div class="standing-name">${UI.escape(p.fullName)}
+          ${p.streak > 1 ? `<div class="standing-meta">${UI.icon('flame')} ${p.streak} in a row</div>` : ''}
         </div>
-        <div class="deck-card-qr">
-          <div id="deckQr_${s.pin}"></div>
-          <div style="font-size: 0.65rem; font-weight: 900; color: #0A0C0F; font-family: var(--font-display); margin-top: 4px;">SCAN PIN</div>
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 0.5rem;">
-        <button onclick="launchSessionFromDeck('${s.pin}')" class="btn-cyber btn-lime" style="flex: 1; font-size: 0.95rem; padding: 0.75rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="width: 14px; height: 14px; flex-shrink: 0;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-          <span>LAUNCH THIS ARENA</span>
-        </button>
-        <button onclick="copyPinCode('${s.pin}')" class="btn-cyber btn-dark" style="padding: 0.75rem 1rem; display: inline-flex; align-items: center; justify-content: center;" title="Copy Code">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; flex-shrink: 0;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-        </button>
-      </div>
-    `;
-    container.appendChild(card);
-    renderSessionQrCode(s.pin, `deckQr_${s.pin}`, 80);
-  });
-}
-
-function copyPinCode(pin) {
-  navigator.clipboard.writeText(pin);
-  alert(`Access code ${pin} copied to clipboard!`);
-}
-
-function launchSessionFromDeck(pin) {
-  currentPin = pin;
-  document.getElementById('tournamentCodesDeck').style.display = 'none';
-  initSignalRAndAttach();
-}
-
-function returnToLobbyOrNextSession() {
-  if (activeTournamentSessions.length > 0) {
-    document.getElementById('hostGameContainer').style.display = 'none';
-    document.getElementById('tournamentCodesDeck').style.display = 'block';
-  } else {
-    window.location.href = '/host.html';
-  }
-}
-
-function initSignalRAndAttach() {
-  connection = new signalR.HubConnectionBuilder()
-    .withUrl('/hubs/game')
-    .withAutomaticReconnect([0, 1000, 2000, 5000, 10000])
-    .configureLogging(signalR.LogLevel.Information)
-    .build();
-
-  connection.on('RoomState', onRoomState);
-  connection.on('PlayerJoined', onPlayerJoined);
-  connection.on('PlayerLeft', onPlayerLeft);
-  connection.on('QuestionCountdown', onQuestionCountdown);
-  connection.on('QuestionStarted', onQuestionStarted);
-  connection.on('TimerTick', onTimerTick);
-  connection.on('AnswerReceived', onAnswerReceived);
-  connection.on('RoundCompleted', onRoundCompleted);
-  connection.on('LeaderboardUpdate', onLeaderboardUpdate);
-  connection.on('GameEnded', onGameEnded);
-  connection.on('ErrorNotification', msg => alert(msg));
-
-  connection.start().then(() => {
-    console.log('Host connected to SignalR. Attaching as host for PIN:', currentPin);
-    connection.invoke('HostJoin', currentPin);
-  }).catch(err => {
-    console.error('SignalR host start error:', err);
-    alert('Failed to connect to game hub. Check PIN.');
-  });
-}
-
-function showHostStage(stageId) {
-  document.getElementById('hostStageSelect').classList.remove('active');
-  document.getElementById('tournamentCodesDeck').style.display = 'none';
-  document.getElementById('hostGameContainer').style.display = 'flex';
-  document.querySelectorAll('.host-stage').forEach(el => el.classList.remove('active'));
-  const target = document.getElementById(stageId);
-  if (target) target.classList.add('active');
-}
-
-function onRoomState(state) {
-  console.log('Host Room State:', state);
-  currentSessionData = state;
-
-  document.getElementById('stadiumPinValue').textContent = state.pin;
-  document.getElementById('stadiumQuizTitle').textContent = 
-    state.tournamentName ? `${state.tournamentName} - ${state.title}` : state.title;
-  document.getElementById('stadiumPlayerCount').textContent = state.connectedPlayerCount || 0;
-
-  // Update Lobby and Stadium HUD Access Code & QR components
-  const lobbyPin = document.getElementById('lobbyPinValue');
-  if (lobbyPin) lobbyPin.textContent = state.pin;
-
-  const joinUrl = `${window.location.origin}/player.html?pin=${encodeURIComponent(state.pin)}`;
-  const lobbyLink = document.getElementById('lobbyDirectLink');
-  if (lobbyLink) lobbyLink.textContent = `${window.location.host}/player.html?pin=${state.pin}`;
-
-  const hudModalPin = document.getElementById('hudModalPinValue');
-  if (hudModalPin) hudModalPin.textContent = state.pin;
-  const hudModalUrl = document.getElementById('hudModalUrlText');
-  if (hudModalUrl) hudModalUrl.textContent = joinUrl;
-
-  const lobbyBadge = document.getElementById('lobbyPlayerBadge');
-  if (lobbyBadge) lobbyBadge.textContent = `${state.connectedPlayerCount || 0} CONTENDERS`;
-
-  // Render QR Codes alongside access code
-  renderSessionQrCode(state.pin, 'lobbyQrContainer', 180);
-  renderSessionQrCode(state.pin, 'hudMiniQrContainer', 32);
-
-  renderLobbyPlayers(state.allPlayers || []);
-
-  if (state.state === 'Lobby') {
-    showHostStage('hostStageLobby');
-    setHudButton('START QUIZ', () => startQuizFromHost());
-  } else if (state.state === 'QuestionActive') {
-    showHostStage('hostStageQuestion');
-    setHudButton('SKIP QUESTION', () => advanceNextQuestionFromHost());
-  } else if (state.state === 'AnswerReveal') {
-    showHostStage('hostStageReveal');
-    setHudButton('VIEW STANDINGS', () => advanceNextQuestionFromHost());
-  } else if (state.state === 'RoundLeaderboard') {
-    showHostStage('hostStageLeaderboard');
-    setHudButton('NEXT QUESTION', () => advanceNextQuestionFromHost());
-  } else if (state.state === 'GameEnded') {
-    showHostStage('hostStagePodium');
-  }
-}
-
-function setHudButton(text, handler) {
-  const btn = document.getElementById('btnHostAction');
-  btn.textContent = text;
-  btn.onclick = handler;
-}
-
-function renderLobbyPlayers(players) {
-  const container = document.getElementById('lobbyContendersGrid');
-  container.innerHTML = '';
-
-  document.getElementById('stadiumPlayerCount').textContent = players.length;
-  const lobbyBadge = document.getElementById('lobbyPlayerBadge');
-  if (lobbyBadge) lobbyBadge.textContent = `${players.length} CONTENDERS`;
-
-  if (players.length === 0) {
-    container.innerHTML = '<div style="color: var(--text-muted); font-size: 1.2rem; padding: 2rem 0;">Waiting for contenders to enter access code...</div>';
-    return;
+        ${p.pointsGained > 0 ? `<span class="standing-gain">+${UI.formatNumber(p.pointsGained)}</span>` : ''}
+        <span class="score">${UI.formatNumber(p.score)}</span>
+      </div>`).join('') : '<p class="muted">No scores yet.</p>';
+    updateHud();
   }
 
-  players.forEach(p => {
-    const chip = document.createElement('div');
-    chip.className = 'player-avatar-chip';
-    chip.id = `chip_${p.playerId}`;
-    chip.innerHTML = `
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; flex-shrink: 0;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-      <span>${escapeHtml(p.fullName)}</span>
-      <span class="kick-btn" onclick="kickPlayer('${p.playerId}')" title="Kick player">✕</span>
-    `;
-    container.appendChild(chip);
-  });
-}
-
-function onPlayerJoined(data) {
-  console.log('Player Joined:', data);
-  document.getElementById('stadiumPlayerCount').textContent = data.totalCount;
-
-  if (data.allPlayers) {
-    renderLobbyPlayers(data.allPlayers);
+  function onGameEnded(data) {
+    state = 'GameEnded';
+    showStage('stagePodium');
+    const podium = data.podium || [];
+    const order = [1, 0, 2];
+    $('podium').innerHTML = order.map(i => {
+      const p = podium[i];
+      return `
+        <div class="podium-place p${i + 1} ${p ? '' : 'is-empty'}">
+          <div class="podium-name">${p ? UI.escape(p.fullName) : ''}</div>
+          <div class="podium-score">${p ? UI.formatNumber(p.score) + ' pts' : ''}</div>
+          <div class="podium-block">${i + 1}</div>
+        </div>`;
+    }).join('');
+    const all = data.allPlayers || [];
+    $('finalTable').innerHTML = all.length ? all.map(p => `
+      <tr><td>${UI.rankBadge(p.rank)}</td><td><div class="player-cell">${UI.avatar(p.fullName)}${UI.escape(p.fullName)}</div></td><td class="right score">${UI.formatNumber(p.score)}</td></tr>`).join('')
+      : '<tr><td colspan="3" class="empty-row">No one played.</td></tr>';
+    if (window.sounds) window.sounds.podium();
+    updateHud();
   }
 
-  if (window.sounds) window.sounds.click();
-}
-
-function onPlayerLeft(data) {
-  console.log('Player Left:', data);
-  document.getElementById('stadiumPlayerCount').textContent = data.totalCount;
-  const chip = document.getElementById(`chip_${data.playerId}`);
-  if (chip) chip.remove();
-}
-
-function startQuizFromHost() {
-  if (window.sounds) window.sounds.init();
-  connection.invoke('StartQuiz', currentPin);
-}
-
-function advanceNextQuestionFromHost() {
-  if (window.sounds) window.sounds.init();
-  connection.invoke('AdvanceQuestion', currentPin);
-}
-
-function kickPlayer(playerId) {
-  if (confirm('Remove this player from the game session?')) {
-    connection.invoke('KickPlayer', currentPin, playerId);
-  }
-}
-
-function onQuestionCountdown(data) {
-  console.log('Host Countdown:', data);
-  showHostStage('hostStageCountdown');
-
-  document.getElementById('hostCountdownSubtext').textContent = `Question ${data.questionIndex} of ${data.totalQuestions}`;
-  let count = data.countdownSeconds;
-  const digitEl = document.getElementById('hostCountdownDigit');
-  digitEl.textContent = count;
-
-  if (window.sounds) window.sounds.tick();
-
-  const interval = setInterval(() => {
-    count--;
-    if (count > 0) {
-      digitEl.textContent = count;
-      if (window.sounds) window.sounds.tick();
-    } else {
-      clearInterval(interval);
-    }
-  }, 1000);
-}
-
-function onQuestionStarted(data) {
-  console.log('Host Question Started:', data);
-  currentQuestionData = data;
-  showHostStage('hostStageQuestion');
-  setHudButton('SKIP QUESTION', () => advanceNextQuestionFromHost());
-
-  document.getElementById('hostQuestionTracker').textContent = `QUESTION ${data.questionNumber} OF ${data.totalQuestions}`;
-  document.getElementById('hostQuestionText').textContent = data.text;
-
-  const timerEl = document.getElementById('hostTimerRing');
-  timerEl.textContent = data.timeLimit;
-  timerEl.classList.remove('hurry');
-
-  const countBadge = document.getElementById('hostAnswersReceivedBadge');
-  countBadge.textContent = `0 / ${document.getElementById('stadiumPlayerCount').textContent} ANSWERED`;
-
-  // Render Choices
-  const container = document.getElementById('hostChoicesContainer');
-  container.innerHTML = '';
-
-  data.choices.forEach((choiceText, idx) => {
-    const card = document.createElement('div');
-    card.className = `host-choice-card host-choice-${idx % 4}`;
-    card.id = `choiceCard_${idx}`;
-    card.innerHTML = `
-      <div class="choice-glyph">${CHOICE_GLYPHS[idx % CHOICE_GLYPHS.length]}</div>
-      <div class="choice-text">${escapeHtml(choiceText)}</div>
-    `;
-    container.appendChild(card);
-  });
-}
-
-function onTimerTick(data) {
-  const timerEl = document.getElementById('hostTimerRing');
-  if (timerEl) {
-    timerEl.textContent = data.remainingSeconds;
-    if (data.remainingSeconds <= 5) {
-      timerEl.classList.add('hurry');
-      if (window.sounds) window.sounds.hurryTick();
-    } else {
-      if (window.sounds) window.sounds.tick();
+  async function exportResults(kind) {
+    const button = kind === 'csv' ? $('exportCsv') : $('exportExcel');
+    try {
+      await UI.busy(button, () => UI.download(`/api/sessions/${encodeURIComponent(pin)}/export/${kind}`, `Groove_${pin}.${kind === 'csv' ? 'csv' : 'xls'}`));
+    } catch (err) {
+      UI.toast(err.message, 'error');
     }
   }
-}
 
-function onAnswerReceived(data) {
-  const countBadge = document.getElementById('hostAnswersReceivedBadge');
-  if (countBadge) {
-    countBadge.textContent = `${data.totalAnswers} / ${data.totalPlayers} ANSWERED`;
-  }
-}
+  // ---------------------------------------------------------------------------
+  // Boot
+  // ---------------------------------------------------------------------------
+  document.addEventListener('DOMContentLoaded', () => {
+    $('gateSignIn').onclick = () => openSignIn('signin');
+    $('gateSignUp').onclick = () => openSignIn('signup');
+    $('upgradeButton').onclick = becomeHost;
 
-function onRoundCompleted(data) {
-  console.log('Host Round Completed:', data);
-  showHostStage('hostStageReveal');
-  setHudButton('NEXT QUESTION', () => advanceNextQuestionFromHost());
+    $('newTournament').onclick = newTournament;
+    $('setupForm').addEventListener('submit', createGame);
+    $('refreshRunning').onclick = loadRunning;
 
-  if (window.sounds) window.sounds.correct();
+    $('hudPrimary').onclick = onPrimary;
+    $('hudEnd').onclick = endCurrentGame;
+    $('hudQr').onclick = openQrDialog;
+    $('copyLink').onclick = () => UI.copyText(joinLink(pin), 'Join link copied');
+    $('exportCsv').onclick = () => exportResults('csv');
+    $('exportExcel').onclick = () => exportResults('excel');
+    $('afterGame').onclick = backFromGame;
 
-  document.getElementById('revealQuestionText').textContent = currentQuestionData ? currentQuestionData.text : '';
-
-  const container = document.getElementById('revealChoicesContainer');
-  container.innerHTML = '';
-
-  if (currentQuestionData && currentQuestionData.choices) {
-    currentQuestionData.choices.forEach((choiceText, idx) => {
-      const isCorrect = (idx === data.correctIndex);
-      const card = document.createElement('div');
-      card.className = `host-choice-card host-choice-${idx % 4} ${isCorrect ? 'revealed-correct' : 'dimmed-wrong'}`;
-      const correctSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; display: inline-block; vertical-align: middle;"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
-      card.innerHTML = `
-        <div class="choice-glyph">${isCorrect ? correctSvg : CHOICE_GLYPHS[idx % CHOICE_GLYPHS.length]}</div>
-        <div class="choice-text">${escapeHtml(choiceText)} ${isCorrect ? '<strong style="color:var(--neon-lime);">[CORRECT]</strong>' : ''}</div>
-      `;
-      container.appendChild(card);
-    });
-  }
-
-  // Draw response distribution bars
-  const barsContainer = document.getElementById('distributionBars');
-  barsContainer.innerHTML = '';
-
-  const maxVotes = Math.max(1, ...(data.stats || [1]));
-
-  (data.stats || []).forEach((count, idx) => {
-    const col = document.createElement('div');
-    col.className = 'dist-col';
-
-    const heightPct = Math.round((count / maxVotes) * 100);
-
-    col.innerHTML = `
-      <div class="dist-bar host-choice-${idx % 4}" style="height: ${Math.max(15, heightPct)}%;">
-        ${count}
-      </div>
-      <div class="dist-label" style="color: #fff;">
-        ${CHOICE_GLYPHS[idx % CHOICE_GLYPHS.length]}
-      </div>
-    `;
-    barsContainer.appendChild(col);
-  });
-}
-
-function onLeaderboardUpdate(data) {
-  console.log('Host Leaderboard Update:', data);
-  showHostStage('hostStageLeaderboard');
-  setHudButton('NEXT QUESTION', () => advanceNextQuestionFromHost());
-
-  const list = document.getElementById('hostLeaderboardList');
-  list.innerHTML = '';
-
-  const flameSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFA502" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; vertical-align: -0.15em; margin-right: 0.25rem;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>`;
-
-  if (data.topPlayers) {
-    data.topPlayers.forEach((p, idx) => {
-      const card = document.createElement('div');
-      card.className = `round-rank-card rank-${idx + 1}`;
-      card.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 1.25rem;">
-          <div class="rank-number">${idx + 1}</div>
-          <div>
-            <div style="font-family: var(--font-display); font-size: 1.35rem; font-weight: 900; text-transform: uppercase;">
-              ${escapeHtml(p.fullName)}
-            </div>
-            ${p.streak > 1 ? `<div style="color: #FFA502; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center;">${flameSvg} Streak: ${p.streak} in a row</div>` : ''}
-          </div>
-        </div>
-        <div style="text-align: right;">
-          <div style="font-family: var(--font-display); font-size: 1.6rem; font-weight: 900; color: var(--neon-lime);">
-            ${p.score.toLocaleString()} PTS
-          </div>
-          ${p.pointsGained > 0 ? `<div style="color: var(--neon-lime); font-size: 0.9rem; font-weight: 800;">+${p.pointsGained}</div>` : ''}
-        </div>
-      `;
-      list.appendChild(card);
-    });
-  }
-}
-
-function onGameEnded(data) {
-  console.log('Host Game Ended:', data);
-  showHostStage('hostStagePodium');
-  setHudButton('MATCH FINISHED', () => {});
-
-  if (window.sounds) window.sounds.podium();
-
-  document.getElementById('btnExportCsv').href = `/api/sessions/${currentPin}/export/csv`;
-  document.getElementById('btnExportExcel').href = `/api/sessions/${currentPin}/export/excel`;
-
-  const podium = data.podium || [];
-
-  if (podium[0]) {
-    document.getElementById('podiumName1').textContent = podium[0].fullName.toUpperCase();
-    document.getElementById('podiumScore1').textContent = `${podium[0].score.toLocaleString()} PTS`;
-  }
-  if (podium[1]) {
-    document.getElementById('podiumName2').textContent = podium[1].fullName.toUpperCase();
-    document.getElementById('podiumScore2').textContent = `${podium[1].score.toLocaleString()} PTS`;
-  }
-  if (podium[2]) {
-    document.getElementById('podiumName3').textContent = podium[2].fullName.toUpperCase();
-    document.getElementById('podiumScore3').textContent = `${podium[2].score.toLocaleString()} PTS`;
-  }
-}
-
-// CUMULATIVE LEADERBOARD ACROSS ALL SESSIONS & GAMES
-async function viewCumulativeLeaderboard() {
-  document.getElementById('cumulativeLeaderboardModal').classList.add('active');
-  document.getElementById('modalHostBadge').textContent = currentHostId || 'All Hosts';
-
-  // Update export links for this host
-  document.getElementById('btnExportModalCsv').href = `/api/leaderboard/export/csv?hostId=${encodeURIComponent(currentHostId)}`;
-  document.getElementById('btnExportModalExcel').href = `/api/leaderboard/export/excel?hostId=${encodeURIComponent(currentHostId)}`;
-
-  const tbody = document.getElementById('cumulativeModalTableBody');
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 2rem; color: var(--text-muted);">Fetching tournament scores...</td></tr>';
-
-  try {
-    const res = await fetch(`/api/leaderboard?hostId=${encodeURIComponent(currentHostId)}`);
-    if (res.ok) {
-      const players = await res.json();
-      tbody.innerHTML = '';
-
-      if (players.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 2rem; color: var(--text-muted);">No contenders have recorded scores under this host yet.</td></tr>';
-        return;
-      }
-
-      players.forEach((p, idx) => {
-        const tr = document.createElement('tr');
-        tr.className = 'row-card';
-
-        const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : 'rank-other';
-        const rankIcon = idx === 0 
-          ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>#1`
-          : `#${idx + 1}`;
-
-        const acc = p.accuracyPercentage || 0;
-        const accClass = acc >= 80 ? 'accuracy-high' : acc >= 50 ? 'accuracy-mid' : 'accuracy-low';
-        const initials = (p.fullName || 'C').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-
-        tr.innerHTML = `
-          <td><span class="rank-badge ${rankClass}">${rankIcon}</span></td>
-          <td>
-            <div class="contender-cell">
-              <div class="contender-avatar">${initials}</div>
-              <div class="contender-name-text">${escapeHtml(p.fullName)}</div>
-            </div>
-          </td>
-          <td><span class="score-cyber">${(p.totalPointsAllTime || 0).toLocaleString()} PTS</span></td>
-          <td style="font-weight: 700; color: #fff;">${p.quizzesPlayed || 0}</td>
-          <td><span class="accuracy-pill ${accClass}">${acc}%</span></td>
-          <td>
-            <span class="streak-chip">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFA502" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
-              ${p.highestStreak || 0}
-            </span>
-          </td>
-          <td style="color: var(--text-muted); font-size: 0.85rem;">${new Date(p.lastActive).toLocaleDateString()}</td>
-        `;
-        tbody.appendChild(tr);
+    document.querySelectorAll('[data-guard-nav]').forEach(a => {
+      a.addEventListener('click', async e => {
+        if (!gameNeedsHost()) return;
+        e.preventDefault();
+        const ok = await UI.confirm({
+          title: 'Leave the host screen?',
+          message: "The game keeps running, but it won't move on until you come back. You can reopen it from Your running games.",
+          confirmText: 'Leave',
+          cancelText: 'Stay',
+        });
+        if (ok) window.location.href = a.href;
       });
-    }
-  } catch (err) {
-    console.error('Error loading cumulative leaderboard:', err);
-  }
-}
-
-function closeCumulativeModal() {
-  document.getElementById('cumulativeLeaderboardModal').classList.remove('active');
-}
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-/* ==========================================================================
-   QR Code Generation & Modal Helpers
-   ========================================================================== */
-function renderSessionQrCode(pin, containerId, size = 160) {
-  const container = document.getElementById(containerId);
-  if (!container || !pin) return;
-  container.innerHTML = '';
-  const joinUrl = `${window.location.origin}/player.html?pin=${encodeURIComponent(pin)}`;
-  if (typeof QRCode !== 'undefined') {
-    new QRCode(container, {
-      text: joinUrl,
-      width: size,
-      height: size,
-      colorDark: "#000000",
-      colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.M
     });
-  } else {
-    console.warn('QRCode library not ready yet');
-  }
-}
 
-function openHudQrModal() {
-  if (currentPin) {
-    const hudModalPin = document.getElementById('hudModalPinValue');
-    if (hudModalPin) hudModalPin.textContent = currentPin;
-    const hudModalUrl = document.getElementById('hudModalUrlText');
-    if (hudModalUrl) hudModalUrl.textContent = `${window.location.origin}/player.html?pin=${encodeURIComponent(currentPin)}`;
-    renderSessionQrCode(currentPin, 'hudModalQrContainer', 220);
-  }
-  const modal = document.getElementById('hudQrModal');
-  if (modal) modal.classList.add('active');
-}
-
-function closeHudQrModal(e) {
-  if (e && e.target !== e.currentTarget && !e.target.classList.contains('btn-cyber')) return;
-  const modal = document.getElementById('hudQrModal');
-  if (modal) modal.classList.remove('active');
-}
-
-function copyLobbyJoinUrl() {
-  if (!currentPin) return;
-  const url = `${window.location.origin}/player.html?pin=${encodeURIComponent(currentPin)}`;
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(url).then(() => {
-      alert(`Contender Arena Join Link copied to clipboard!\n${url}`);
-    }).catch(() => {
-      prompt('Contender Arena Join Link:', url);
+    window.addEventListener('beforeunload', e => {
+      if (gameNeedsHost()) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
     });
-  } else {
-    prompt('Contender Arena Join Link:', url);
-  }
-}
 
+    Session.onChange(() => {
+      if (!Session.canHost()) {
+        if (inGameView()) leaveGame();
+        route();
+      } else if (inGameView()) {
+        renderAccount();
+      } else {
+        route();
+      }
+    });
+    route();
+  });
+})();

@@ -15,7 +15,11 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5000
       - ConnectionStrings__DefaultConnection=Host=localhost;Port=5432;Database=groove;Username=postgres;Password=postgres
-      - Jwt__Key=GrooveSuperSecretProductionSigningKeyReplaceWithLongRandomString64Chars!
+      # Required: a long random secret (32+ chars), e.g. `openssl rand -base64 48`.
+      - Jwt__Key=${GROOVE_JWT_KEY}
+      # Creates the first admin account on startup if it does not exist yet.
+      - Admin__Email=${GROOVE_ADMIN_EMAIL}
+      - Admin__Password=${GROOVE_ADMIN_PASSWORD}
       - Jwt__Issuer=Groove
       - Jwt__Audience=GrooveClients
 

@@ -125,7 +125,21 @@ docker compose logs -f groove
 ## 🎮 Accessing Groove
 - **Home / Player Portal:** `https://groove.yourdomain.com`
 - **Host Stadium Display:** `https://groove.yourdomain.com/host.html`
-  - Default Host login: `host@groove.live` / `HostPass123!` (or `host@triviasync.com` / `host123`)
+  - Hosts create their own account from this page. Existing player accounts can switch to hosting there too.
 - **Admin Control Deck:** `https://groove.yourdomain.com/admin.html`
-  - Default Admin login: `admin@groove.live` / `AdminPass123!`
+  - Sign in with the admin account from `Admin__Email` / `Admin__Password` (see below), then promote other people from the **People** tab.
+
+## 🔐 Required environment variables
+
+Set these in Dokploy's **Environment** tab before the first deploy:
+
+| Variable | Purpose |
+| --- | --- |
+| `Jwt__Key` | Secret used to sign sign-in tokens. Use a long random value (32+ characters), e.g. `openssl rand -base64 48`. If it's missing, the app generates a random key on each start and everyone is signed out on restart. |
+| `Admin__Email` | Email of the first admin account. Created on startup if it doesn't exist. |
+| `Admin__Password` | Password for that account. You can remove both variables after the first start. |
+
+There are no built-in default accounts in production. The demo accounts (`admin@groove.live` etc.) exist only when `ASPNETCORE_ENVIRONMENT=Development`.
+
+> **Upgrading from an older version:** accounts used to be stored in memory with plaintext passwords and were lost on every restart. They now live in the `users` table with hashed passwords. Nobody has an account after upgrading, so set the admin variables above, then hosts sign up again.
 - **Health Check:** `https://groove.yourdomain.com/health`

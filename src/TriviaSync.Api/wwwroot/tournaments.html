@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My tournaments · Groove</title>
+  <link rel="stylesheet" href="/css/style.css?v=4.3">
+  <style>
+    .view { display: none; }
+    .view.is-active { display: block; animation: fade-in .15s ease-out; }
+    .join-row { display: flex; gap: 10px; }
+    .join-row .input { flex: 1; text-transform: uppercase; letter-spacing: 0.2em; font-weight: 700; font-size: 1.25rem; text-align: center; }
+    .t-card { display: block; text-decoration: none; color: inherit; transition: border-color .15s; }
+    .t-card:hover { border-color: var(--lime); }
+    .t-card h3 { margin-bottom: 4px; overflow-wrap: anywhere; }
+    .top-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 20px; align-items: start; }
+    @media (max-width: 860px) { .top-grid { grid-template-columns: minmax(0, 1fr); } }
+  </style>
+</head>
+<body class="has-tabbar">
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a href="/" class="brand" aria-label="Groove home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span class="brand-name">Groove</span>
+      </a>
+      <nav class="nav" aria-label="Main">
+        <a href="/player.html">Join</a>
+        <a href="/tournaments.html" aria-current="page">Tournaments</a>
+        <a href="/host.html">Host</a>
+        <a href="/leaderboard.html">Standings</a>
+        <a href="/admin.html" data-admin-only hidden>Admin</a>
+      </nav>
+      <div class="account" id="account"></div>
+    </div>
+  </header>
+
+  <main class="view page" id="viewGate">
+    <div class="container container-narrow">
+      <div class="card card-lg text-center">
+        <h1>Your tournaments</h1>
+        <p class="muted mt-2" style="max-width: 44ch; margin-inline: auto;">Sign in to join tournaments with a code, play sessions before their deadline, and see your scores over time.</p>
+        <div class="row-wrap mt-6" style="justify-content: center;">
+          <button type="button" class="btn btn-primary btn-lg" id="gateSignIn">Sign in</button>
+          <button type="button" class="btn btn-secondary btn-lg" id="gateSignUp">Create account</button>
+        </div>
+        <p class="subtle mt-6">Just want to see scores? <a href="/leaderboard.html">Standings are public.</a></p>
+      </div>
+    </div>
+  </main>
+
+  <main class="view page" id="viewMine">
+    <div class="container">
+      <div class="mb-6">
+        <h1>Your tournaments</h1>
+        <p class="muted mt-1">Sessions you can play, and how you've done so far.</p>
+      </div>
+
+      <div class="top-grid">
+        <form class="card card-lime" id="joinForm" novalidate>
+          <h2>Join a tournament</h2>
+          <p class="muted mt-1 mb-4">Enter the code your host gave you.</p>
+          <div class="form-error mb-3" id="joinError" hidden role="alert"></div>
+          <label class="sr-only" for="joinCode">Tournament code</label>
+          <div class="join-row">
+            <input class="input" id="joinCode" maxlength="6" autocomplete="off" spellcheck="false" placeholder="CODE">
+            <button type="submit" class="btn btn-dark" id="joinButton">Join</button>
+          </div>
+        </form>
+
+        <section>
+          <h2 class="eyebrow mb-3">Joined</h2>
+          <div class="stack-sm" id="joinedList"><p class="subtle">Loading…</p></div>
+        </section>
+      </div>
+
+      <section class="mt-8">
+        <h2 class="eyebrow mb-3">Your history</h2>
+        <div class="card">
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>Session</th><th class="hide-sm">Tournament</th><th class="right">Score</th><th class="right">Correct</th><th class="right">Place</th><th class="hide-sm">Played</th></tr></thead>
+              <tbody id="historyTable"><tr><td colspan="6" class="empty-row">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <nav class="tabbar" aria-label="Main">
+    <a href="/"><span data-icon="home"></span>Home</a>
+    <a href="/player.html"><span data-icon="gamepad"></span>Play</a>
+    <a href="/tournaments.html" aria-current="page"><span data-icon="users"></span>Tournaments</a>
+    <a href="/leaderboard.html"><span data-icon="trophy"></span>Standings</a>
+  </nav>
+
+  <script src="/js/ui.js?v=4.3"></script>
+  <script>
+  (function () {
+    const $ = id => document.getElementById(id);
+    const pendingCode = (new URLSearchParams(location.search).get('join') || '').trim().toUpperCase();
+
+    function showView(id) {
+      document.querySelectorAll('.view').forEach(v => v.classList.toggle('is-active', v.id === id));
+    }
+
+    function route() {
+      UI.renderAccount($('account'));
+      if (!Session.get()) {
+        showView('viewGate');
+        return;
+      }
+      showView('viewMine');
+      if (pendingCode && !$('joinCode').value) $('joinCode').value = pendingCode;
+      loadJoined();
+      loadHistory();
+    }
+
+    async function loadJoined() {
+      const list = $('joinedList');
+      try {
+        const items = await UI.api('/api/tournaments/joined');
+        if (!items.length) {
+          list.innerHTML = '<div class="empty"><p>You haven\'t joined any tournaments yet.</p></div>';
+          return;
+        }
+        list.innerHTML = items.map(t => `
+          <a class="card card-sm t-card" href="/tournament.html?id=${encodeURIComponent(t.id)}">
+            <div class="spread">
+              <h3>${UI.escape(t.name)}</h3>
+              ${t.openCount ? `<span class="badge badge-live">${t.openCount} open</span>` : ''}
+            </div>
+            <p class="subtle">Hosted by ${UI.escape(t.hostName)} · ${t.sessionCount} session${t.sessionCount === 1 ? '' : 's'} · ${t.memberCount} player${t.memberCount === 1 ? '' : 's'}</p>
+          </a>`).join('');
+      } catch (err) {
+        list.innerHTML = `<p class="subtle">${UI.escape(err.message)}</p>`;
+      }
+    }
+
+    async function loadHistory() {
+      const tbody = $('historyTable');
+      try {
+        const rows = await UI.api('/api/tournaments/history');
+        if (!rows.length) {
+          tbody.innerHTML = '<tr><td colspan="6" class="empty-row">Sessions you play in tournaments show up here.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = rows.map(r => `
+          <tr>
+            <td><div style="font-weight: 600;">${UI.escape(r.sessionTitle)}</div>
+              ${r.completed ? '' : '<span class="badge badge-warning">Unfinished</span>'}</td>
+            <td class="hide-sm"><a href="/tournament.html?id=${encodeURIComponent(r.tournamentId)}">${UI.escape(r.tournamentName)}</a></td>
+            <td class="right score">${UI.formatNumber(r.score)}</td>
+            <td class="right num">${r.correct}/${r.questionCount}</td>
+            <td class="right num">${r.rank} of ${r.playerCount}</td>
+            <td class="hide-sm muted">${new Date(r.playedAt).toLocaleDateString()}</td>
+          </tr>`).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-row">${UI.escape(err.message)}</td></tr>`;
+      }
+    }
+
+    async function join(e) {
+      e.preventDefault();
+      const input = $('joinCode');
+      const code = input.value.trim().toUpperCase();
+      $('joinError').hidden = true;
+      if (code.length !== 6) {
+        $('joinError').innerHTML = `${UI.icon('alert')}<span>Tournament codes are 6 characters.</span>`;
+        $('joinError').hidden = false;
+        input.focus();
+        return;
+      }
+      try {
+        const t = await UI.busy($('joinButton'), () => UI.api('/api/tournaments/join', { method: 'POST', body: { code } }));
+        UI.toast(`You joined ${t.name}`, 'success');
+        location.href = `/tournament.html?id=${encodeURIComponent(t.id)}`;
+      } catch (err) {
+        $('joinError').innerHTML = `${UI.icon('alert')}<span>${UI.escape(err.message)}</span>`;
+        $('joinError').hidden = false;
+      }
+    }
+
+    $('joinCode').addEventListener('input', e => { e.target.value = e.target.value.replace(/[^0-9a-z]/gi, '').toUpperCase().slice(0, 6); });
+    $('joinForm').addEventListener('submit', join);
+    $('gateSignIn').onclick = () => UI.signIn({ title: 'Sign in', description: pendingCode ? `Sign in to join tournament ${pendingCode}.` : '' });
+    $('gateSignUp').onclick = () => UI.signIn({ title: 'Create an account', startWith: 'signup', description: pendingCode ? `Then you'll join tournament ${pendingCode}.` : '' });
+
+    Session.onChange(route);
+    route();
+  })();
+  </script>
+</body>
+</html>
