@@ -621,3 +621,23 @@ code { font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; font-siz
 
 .paste-preview { margin: 8px 0 0 22px; display: grid; gap: 6px; font-size: 0.9375rem; max-height: 220px; overflow-y: auto; }
 .paste-preview li span:first-child { display: block; font-weight: 600; }
+
+/* ==========================================================================
+   Full-screen join view (projector)
+   ========================================================================== */
+.fs-overlay { position: fixed; inset: 0; z-index: 1200; background: var(--bg); display: grid; place-items: center; padding: 24px; overflow: auto; animation: fade-in .15s ease-out; }
+.fs-close { position: absolute; top: 16px; right: 16px; }
+.fs-body { width: 100%; max-width: 1400px; text-align: center; }
+.fs-title { font-size: clamp(1.75rem, 4.5vw, 4rem); margin: 8px 0 clamp(20px, 4vh, 48px); overflow-wrap: anywhere; }
+.fs-grid { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: clamp(24px, 5vw, 80px); align-items: center; justify-content: center; text-align: left; }
+.fs-qr { width: min(52vh, 38vw, 560px); aspect-ratio: 1; padding: clamp(10px, 1.6vw, 24px); border-radius: var(--radius-lg); }
+.fs-qr img, .fs-qr canvas { width: 100% !important; height: 100% !important; }
+.fs-url { font-size: clamp(1.1rem, 2.8vw, 2.5rem); font-weight: 700; overflow-wrap: anywhere; margin: 4px 0 10px; }
+.fs-step { color: var(--text-2); font-size: clamp(1rem, 1.8vw, 1.5rem); }
+.fs-code { font-size: clamp(3.25rem, 11vw, 9rem); color: var(--lime); margin: 8px 0 16px; }
+.fs-count { color: var(--text-2); font-size: clamp(1rem, 1.8vw, 1.5rem); min-height: 1.5em; }
+#joinCode { cursor: pointer; }
+@media (max-width: 820px), (orientation: portrait) {
+  .fs-grid { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; }
+  .fs-qr { width: min(64vw, 38vh, 420px); }
+}

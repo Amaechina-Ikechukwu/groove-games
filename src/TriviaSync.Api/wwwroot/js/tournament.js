@@ -547,6 +547,102 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Full-screen join view (for a projector or shared screen)
+  // ---------------------------------------------------------------------------
+  /**
+   * Fills the screen with a QR code, the web address and the code, large enough to read from across a room.
+   * Options: eyebrow, title, code, link (what the QR code opens), urlText, countText (optional async () => string).
+   */
+  function showFullscreenCode({ eyebrow, title, code, link, urlText, countText }) {
+    const overlay = document.createElement('div');
+    overlay.className = 'fs-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', `Join ${title}`);
+    overlay.innerHTML = `
+      <button type="button" class="btn btn-secondary fs-close">${UI.icon('x')}Close</button>
+      <div class="fs-body">
+        <p class="eyebrow">${UI.escape(eyebrow)}</p>
+        <h1 class="fs-title">${UI.escape(title)}</h1>
+        <div class="fs-grid">
+          <div class="qr-box fs-qr" id="fsQr" aria-label="QR code to join"></div>
+          <div class="fs-info">
+            <p class="fs-step">Scan the code, or go to</p>
+            <p class="fs-url">${UI.escape(urlText)}</p>
+            <p class="fs-step">and enter the code</p>
+            <div class="pin fs-code">${UI.escape(code)}</div>
+            <p class="fs-count" id="fsCount" aria-live="polite"></p>
+          </div>
+        </div>
+      </div>`;
+
+    const box = overlay.querySelector('#fsQr');
+    if (typeof QRCode !== 'undefined') {
+      // Drawn large, scaled to the screen by CSS so it stays sharp on a projector.
+      new QRCode(box, { text: link, width: 512, height: 512, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    } else {
+      box.remove();
+    }
+
+    const previouslyFocused = document.activeElement;
+    let timer = null;
+    let closed = false;
+
+    function close() {
+      if (closed) return;
+      closed = true;
+      clearInterval(timer);
+      document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+      overlay.remove();
+      document.body.style.overflow = '';
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      if (previouslyFocused && previouslyFocused.focus) previouslyFocused.focus();
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') { e.stopPropagation(); close(); }
+    }
+    function onFullscreenChange() {
+      // The browser uses Escape to leave full screen; treat that as closing the view.
+      if (!document.fullscreenElement) close();
+    }
+
+    overlay.querySelector('.fs-close').onclick = close;
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+    overlay.querySelector('.fs-close').focus();
+
+    if (overlay.requestFullscreen) {
+      overlay.requestFullscreen().then(() => document.addEventListener('fullscreenchange', onFullscreenChange)).catch(() => { /* the overlay still fills the window */ });
+    }
+
+    if (countText) {
+      const refresh = async () => {
+        try { overlay.querySelector('#fsCount').textContent = await countText(); } catch (_) { /* keep the last value */ }
+      };
+      refresh();
+      timer = setInterval(refresh, 5000);
+    }
+  }
+
+  async function playersJoinedText() {
+    const members = await UI.api(`/api/tournaments/${encodeURIComponent(tournamentId)}/members`);
+    return members.length === 1 ? '1 player has joined' : `${members.length} players have joined`;
+  }
+
+  function showTournamentJoinScreen() {
+    showFullscreenCode({
+      eyebrow: `Join the tournament · Hosted by ${info.hostName}`,
+      title: info.name,
+      code: detail.joinCode,
+      link: `${location.origin}/tournaments.html?join=${encodeURIComponent(detail.joinCode)}`,
+      urlText: `${location.host}/tournaments.html`,
+      countText: playersJoinedText,
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // Share
   // ---------------------------------------------------------------------------
   function shareSession(s) {
@@ -571,11 +667,22 @@
               : `Only players in this tournament can play it, so they need the tournament code <strong>${UI.escape(detail.joinCode || '')}</strong> first.${s.status === 'Open' ? '' : ' It isn\'t open yet.'}`}</p>
           </div>
           <div class="dialog-actions">
+            <button class="btn btn-secondary" data-fullscreen>${UI.icon('screen')}Full screen</button>
             <button class="btn btn-secondary" data-copy-code>${UI.icon('copy')}Copy code</button>
             <button class="btn btn-primary" data-copy-link>${UI.icon('link')}Copy link</button>
           </div>`;
         el.querySelector('[data-close]').onclick = () => close();
         el.querySelector('[data-copy-code]').onclick = () => UI.copyText(code, 'Code copied');
+        el.querySelector('[data-fullscreen]').onclick = () => {
+          close();
+          showFullscreenCode({
+            eyebrow: live ? 'Join the game' : 'Play this quiz',
+            title: s.title,
+            code,
+            link,
+            urlText: `${location.host}/player.html`,
+          });
+        };
         el.querySelector('[data-copy-link]').onclick = () => UI.copyText(link, 'Link copied');
         const box = el.querySelector('#shareQr');
         if (typeof QRCode !== 'undefined') new QRCode(box, { text: link, width: 200, height: 200, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
@@ -869,6 +976,9 @@
     document.querySelectorAll('.tab').forEach(t => { t.onclick = () => selectTab(t.dataset.tab); });
     $('addSession').onclick = addSession;
     $('copyCode').onclick = () => UI.copyText(detail.joinCode, 'Code copied');
+    $('fullscreenCode').onclick = showTournamentJoinScreen;
+    $('joinCode').onclick = showTournamentJoinScreen;
+    $('joinCode').title = 'Click to show full screen';
     $('copyLink').onclick = () => UI.copyText(`${location.origin}/tournaments.html?join=${encodeURIComponent(detail.joinCode)}`, 'Invite link copied');
 
     // Keep live status, deadlines and scores fresh while the page is open.
