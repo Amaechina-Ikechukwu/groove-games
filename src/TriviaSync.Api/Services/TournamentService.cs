@@ -66,6 +66,11 @@ public interface ITournamentService
     List<TournamentSessionEntity> Sessions(string tournamentId);
     TournamentSessionEntity? GetSession(string sessionId);
     TournamentSessionEntity CreateSession(string tournamentId, string title, Quiz quiz, string mode);
+    TournamentSessionEntity UpdateSession(string sessionId, string title, List<Question>? questions);
+    TournamentSessionEntity? FindSessionByCode(string code);
+    bool CodeInUse(string code);
+    bool QuestionsLocked(TournamentSessionEntity session);
+    void RequirePlayableContent(TournamentSessionEntity session);
     void DeleteSession(string sessionId);
     TournamentSessionEntity OpenSession(string sessionId, DateTime closesAtUtc);
     TournamentSessionEntity CloseSession(string sessionId);
@@ -138,7 +143,9 @@ public class TournamentService : ITournamentService
                 CREATE TABLE IF NOT EXISTS tournament_sessions (
                     id text PRIMARY KEY, tournament_id text NOT NULL, title text NOT NULL, quiz_id text NOT NULL,
                     quiz_json text NOT NULL, mode text NOT NULL, status text NOT NULL,
-                    closes_at timestamp with time zone NULL, live_pin text NULL, created_at timestamp with time zone NOT NULL);
+                    closes_at timestamp with time zone NULL, live_pin text NULL, code text NOT NULL DEFAULT '',
+                    created_at timestamp with time zone NOT NULL);
+                ALTER TABLE tournament_sessions ADD COLUMN IF NOT EXISTS code text NOT NULL DEFAULT '';
                 CREATE TABLE IF NOT EXISTS session_attempts (
                     id text PRIMARY KEY, session_id text NOT NULL, tournament_id text NOT NULL, user_email text NOT NULL,
                     display_name text NOT NULL, started_at timestamp with time zone NOT NULL, completed_at timestamp with time zone NULL,
@@ -152,6 +159,12 @@ public class TournamentService : ITournamentService
             foreach (var s in db.TournamentSessions.AsNoTracking()) _sessions[s.Id] = s;
             foreach (var a in db.SessionAttempts.AsNoTracking()) _attempts[a.Id] = a;
             _usePostgres = true;
+
+            foreach (var s in _sessions.Values.Where(s => string.IsNullOrEmpty(s.Code)).ToList())
+            {
+                s.Code = NewSessionCode();
+                Persist(db2 => db2.TournamentSessions.Update(s));
+            }
 
             // Live games only exist in memory, so any that were running before a restart are gone.
             foreach (var s in _sessions.Values.Where(s => s.Status == SessionStatuses.Live).ToList())
@@ -360,11 +373,9 @@ public class TournamentService : ITournamentService
     {
         if (mode != SessionModes.Live && mode != SessionModes.SelfPaced)
             throw TournamentException.Invalid("Mode must be Live or SelfPaced.");
-        if (quiz.Questions.Count == 0)
-            throw TournamentException.Invalid("That quiz has no questions.");
         var cleanTitle = string.IsNullOrWhiteSpace(title) ? quiz.Title : title.Trim();
-        if (cleanTitle.Length > 100)
-            throw TournamentException.Invalid("Session title can be at most 100 characters.");
+        if (cleanTitle.Length is < 1 or > 100)
+            throw TournamentException.Invalid("Give the session a name of up to 100 characters.");
 
         lock (_lock)
         {
@@ -378,6 +389,7 @@ public class TournamentService : ITournamentService
                 Title = cleanTitle,
                 QuizId = quiz.Id,
                 QuizJson = JsonSerializer.Serialize(quiz),
+                Code = NewSessionCode(),
                 Mode = mode,
                 Status = SessionStatuses.Draft,
                 CreatedAt = DateTime.UtcNow
@@ -419,6 +431,7 @@ public class TournamentService : ITournamentService
             var s = _sessions.GetValueOrDefault(sessionId) ?? throw TournamentException.NotFound("Session");
             if (s.Mode != SessionModes.SelfPaced)
                 throw TournamentException.Invalid("Only self-paced sessions can be opened with a deadline.");
+            RequirePlayableContent(s);
             s.Status = SessionStatuses.Open;
             s.ClosesAt = closesAt;
             Persist(db => db.TournamentSessions.Update(s));
@@ -510,6 +523,118 @@ public class TournamentService : ITournamentService
 
     public Quiz QuizFor(TournamentSessionEntity session) =>
         JsonSerializer.Deserialize<Quiz>(session.QuizJson, Json) ?? new Quiz();
+
+    // -------------------------------------------------------------------------
+    // Editing & access codes
+    // -------------------------------------------------------------------------
+    public const int MaxQuestions = 100;
+
+    /// <summary>Questions can't change once anyone has played, or while a live game is running.</summary>
+    public bool QuestionsLocked(TournamentSessionEntity session)
+    {
+        lock (_lock)
+        {
+            return session.Status == SessionStatuses.Live || _attempts.Values.Any(a => a.SessionId == session.Id);
+        }
+    }
+
+    public void RequirePlayableContent(TournamentSessionEntity session)
+    {
+        if (QuizFor(session).Questions.Count == 0)
+            throw TournamentException.Invalid("Add at least one question first.");
+    }
+
+    public TournamentSessionEntity UpdateSession(string sessionId, string title, List<Question>? questions)
+    {
+        var cleanTitle = (title ?? string.Empty).Trim();
+        if (cleanTitle.Length is < 1 or > 100)
+            throw TournamentException.Invalid("Give the session a name of up to 100 characters.");
+
+        lock (_lock)
+        {
+            var s = _sessions.GetValueOrDefault(sessionId) ?? throw TournamentException.NotFound("Session");
+
+            if (questions != null)
+            {
+                if (s.Status == SessionStatuses.Live)
+                    throw TournamentException.Conflict("A live game is running. End it before changing the questions.");
+                if (_attempts.Values.Any(a => a.SessionId == sessionId))
+                    throw TournamentException.Conflict("Players have already played this session, so its questions can't change. You can still rename it.");
+
+                var cleaned = ValidateQuestions(questions);
+                var quiz = QuizFor(s);
+                quiz.Questions = cleaned;
+                s.QuizJson = JsonSerializer.Serialize(quiz);
+            }
+
+            s.Title = cleanTitle;
+            Persist(db => db.TournamentSessions.Update(s));
+            return s;
+        }
+    }
+
+    private static List<Question> ValidateQuestions(List<Question> questions)
+    {
+        if (questions.Count > MaxQuestions)
+            throw TournamentException.Invalid($"A session can have at most {MaxQuestions} questions.");
+
+        var result = new List<Question>();
+        for (var i = 0; i < questions.Count; i++)
+        {
+            var q = questions[i];
+            var n = i + 1;
+            var text = (q.Text ?? string.Empty).Trim();
+            if (text.Length is < 1 or > 300)
+                throw TournamentException.Invalid($"Question {n} needs text of up to 300 characters.");
+
+            var choices = (q.Choices ?? new List<string>()).Select(c => (c ?? string.Empty).Trim()).ToList();
+            if (choices.Count is < 2 or > 6)
+                throw TournamentException.Invalid($"Question {n} needs between 2 and 6 answers.");
+            if (choices.Any(c => c.Length is < 1 or > 200))
+                throw TournamentException.Invalid($"Every answer in question {n} needs text of up to 200 characters.");
+            if (choices.Select(c => c.ToLowerInvariant()).Distinct().Count() != choices.Count)
+                throw TournamentException.Invalid($"Question {n} has two identical answers.");
+            if (q.CorrectIndex < 0 || q.CorrectIndex >= choices.Count)
+                throw TournamentException.Invalid($"Mark which answer is correct in question {n}.");
+            if (q.TimeLimitSeconds is < 5 or > 120)
+                throw TournamentException.Invalid($"Question {n}: the time limit must be between 5 and 120 seconds.");
+            if (q.Points is < 0 or > 5000)
+                throw TournamentException.Invalid($"Question {n}: points must be between 0 and 5,000.");
+
+            result.Add(new Question
+            {
+                QuestionId = string.IsNullOrWhiteSpace(q.QuestionId) ? Guid.NewGuid().ToString("N") : q.QuestionId,
+                Text = text,
+                Choices = choices,
+                CorrectIndex = q.CorrectIndex,
+                TimeLimitSeconds = q.TimeLimitSeconds,
+                Points = q.Points
+            });
+        }
+        return result;
+    }
+
+    public TournamentSessionEntity? FindSessionByCode(string code)
+    {
+        var clean = (code ?? string.Empty).Trim();
+        lock (_lock) return _sessions.Values.FirstOrDefault(s => s.Code == clean);
+    }
+
+    public bool CodeInUse(string code)
+    {
+        lock (_lock) return _sessions.Values.Any(s => s.Code == code);
+    }
+
+    /// <summary>A 6-digit code, the same shape as a live PIN so players type one kind of code.</summary>
+    private string NewSessionCode()
+    {
+        while (true)
+        {
+            var code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+            if (!_sessions.Values.Any(s => s.Code == code))
+                return code;
+        }
+    }
 
     // -------------------------------------------------------------------------
     // Self-paced play

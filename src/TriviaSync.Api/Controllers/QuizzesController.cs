@@ -26,7 +26,7 @@ public class QuizzesController : ControllerBase
         _logger = logger;
     }
 
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize(Policy = "HostOnly")]
     [HttpPost("parse")]
     public ActionResult<QuizParseResult> ParseQuiz([FromBody] ParseQuizRequest request)
     {

@@ -19,8 +19,16 @@ public class JoinTournamentRequest
     public string Code { get; set; } = string.Empty;
 }
 
+public class UpdateSessionRequest
+{
+    public string Title { get; set; } = string.Empty;
+    /// <summary>Omit to only rename the session.</summary>
+    public List<TriviaSync.Api.Models.Question>? Questions { get; set; }
+}
+
 public class CreateTournamentSessionRequest
 {
+    /// <summary>Leave empty to start with no questions and write your own.</summary>
     public string QuizId { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Mode { get; set; } = SessionModes.Live;
@@ -123,6 +131,8 @@ public class TournamentsController : ControllerBase
         {
             id = s.Id,
             title = s.Title,
+            code = canManage ? s.Code : null,
+            questionsLocked = canManage ? _tournaments.QuestionsLocked(s) : (bool?)null,
             mode = s.Mode,
             status,
             closesAt = s.ClosesAt,
@@ -330,9 +340,45 @@ public class TournamentsController : ControllerBase
     public async Task<ActionResult> CreateSession(string id, [FromBody] CreateTournamentSessionRequest request)
     {
         var t = RequireManage(id);
-        var quiz = await _data.GetQuizByIdAsync(request.QuizId) ?? throw TournamentException.NotFound("Quiz");
+        TriviaSync.Api.Models.Quiz quiz;
+        if (string.IsNullOrWhiteSpace(request.QuizId))
+        {
+            if (string.IsNullOrWhiteSpace(request.Title))
+                throw TournamentException.Invalid("Give the session a name.");
+            quiz = new TriviaSync.Api.Models.Quiz { Id = $"custom_{Guid.NewGuid():N}"[..15], Title = request.Title.Trim(), CreatedBy = Email };
+        }
+        else
+        {
+            quiz = await _data.GetQuizByIdAsync(request.QuizId) ?? throw TournamentException.NotFound("Quiz");
+        }
         var s = _tournaments.CreateSession(id, request.Title, quiz, request.Mode);
         return Ok(SessionDto(t, s, true, false));
+    }
+
+    /// <summary>Full session for editing, including the correct answers. Managers only.</summary>
+    [HttpGet("{id}/sessions/{sessionId}")]
+    public ActionResult GetSessionForEdit(string id, string sessionId)
+    {
+        var t = RequireManage(id);
+        var s = RequireSession(t, sessionId);
+        return Ok(new
+        {
+            session = SessionDto(t, s, true, false),
+            questions = _tournaments.QuizFor(s).Questions
+        });
+    }
+
+    [HttpPut("{id}/sessions/{sessionId}")]
+    public ActionResult UpdateSession(string id, string sessionId, [FromBody] UpdateSessionRequest request)
+    {
+        var t = RequireManage(id);
+        RequireSession(t, sessionId);
+        var s = _tournaments.UpdateSession(sessionId, request.Title, request.Questions);
+        return Ok(new
+        {
+            session = SessionDto(t, s, true, false),
+            questions = _tournaments.QuizFor(s).Questions
+        });
     }
 
     [HttpDelete("{id}/sessions/{sessionId}")]
@@ -378,6 +424,7 @@ public class TournamentsController : ControllerBase
 
         if (!string.IsNullOrEmpty(s.LivePin) && _engine.GetSession(s.LivePin) != null)
             return Ok(new { pin = s.LivePin });
+        _tournaments.RequirePlayableContent(s);
 
         var game = _engine.CreateSession(
             quiz: _tournaments.QuizFor(s),
@@ -386,7 +433,8 @@ public class TournamentsController : ControllerBase
             tournamentId: t.Id,
             tournamentName: t.Name,
             sessionType: "Tournament",
-            tournamentSessionId: s.Id);
+            tournamentSessionId: s.Id,
+            preferredPin: s.Code);
         _tournaments.SetLive(s.Id, game.Pin);
         return Ok(new { pin = game.Pin });
     }
@@ -435,6 +483,25 @@ public class PlayController : ControllerBase
     {
         _tournaments = tournaments;
         _auth = auth;
+    }
+
+    /// <summary>
+    /// Tells the join screen what an access code is for, so a self-paced code can send the player to the quiz
+    /// and a live code can say the host hasn't started yet. Reveals nothing beyond the session's name and status.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("code/{code}")]
+    public ActionResult ResolveCode(string code)
+    {
+        var s = _tournaments.FindSessionByCode(code);
+        if (s == null) return NotFound(new { message = "No session uses that code." });
+        return Ok(new
+        {
+            sessionId = s.Id,
+            title = s.Title,
+            mode = s.Mode,
+            status = _tournaments.EffectiveStatus(s)
+        });
     }
 
     /// <summary>Describes a session for the intro screen without starting the attempt or any timer.</summary>

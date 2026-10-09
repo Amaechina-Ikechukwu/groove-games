@@ -151,6 +151,8 @@
       buttons.push('<button class="btn btn-ghost btn-sm" data-act="reopen">Reopen…</button>');
     }
     if (s.attemptCount) buttons.push(`<button class="btn btn-ghost btn-sm" data-act="results">Results (${s.attemptCount})</button>`);
+    buttons.push(`<button class="btn btn-ghost btn-sm" data-act="edit">${UI.icon('edit')}Edit</button>`);
+    buttons.push(`<button class="btn btn-ghost btn-sm" data-act="share">${UI.icon('qr')}Share</button>`);
     buttons.push(`<button class="btn btn-danger-ghost btn-sm" data-act="remove" aria-label="Delete ${UI.escape(s.title)}">${UI.icon('trash')}Delete</button>`);
     return buttons.join('');
   }
@@ -171,7 +173,8 @@
           <div class="session-meta">
             <span class="badge badge-outline">${s.mode === 'Live' ? 'Live game' : 'Self-paced'}</span>
             ${statusBadge(s)}
-            <span class="subtle">${s.questionCount} questions${s.mode === 'SelfPaced' && s.closesAt && s.status !== 'Draft' ? ` · ${s.status === 'Open' ? 'closes' : 'closed'} ${UI.escape(UI.formatDateTime(s.closesAt))}` : ''}</span>
+            ${canManage && s.code ? `<span class="badge" title="Access code">Code ${UI.escape(s.livePin || s.code)}</span>` : ''}
+            <span class="subtle">${s.questionCount} question${s.questionCount === 1 ? '' : 's'}${s.mode === 'SelfPaced' && s.closesAt && s.status !== 'Draft' ? ` · ${s.status === 'Open' ? 'closes' : 'closed'} ${UI.escape(UI.formatDateTime(s.closesAt))}` : ''}</span>
           </div>
         </div>
         <div class="session-actions">${canManage ? manageActions(s) : memberActions(s)}</div>
@@ -182,6 +185,7 @@
       const handlers = {
         live: () => runLive(s, b), open: () => openSession(s, 'open'), extend: () => openSession(s, 'extend'),
         reopen: () => openSession(s, 'reopen'), close: () => closeSession(s), results: () => showResults(s), remove: () => deleteSession(s),
+        edit: () => editSession(s), share: () => shareSession(s),
       };
       b.onclick = handlers[b.dataset.act];
     });
@@ -196,10 +200,6 @@
     } catch (err) {
       return UI.toast(err.message, 'error');
     }
-    if (!quizzes.length) {
-      return UI.notice({ title: 'No quizzes yet', message: Session.isAdmin() ? 'Create a quiz in Admin first.' : 'Ask an admin to add a quiz first.' });
-    }
-
     UI.openDialog({
       labelledBy: 'addTitle',
       render(el, close) {
@@ -207,12 +207,13 @@
           <h2 class="dialog-title" id="addTitle">Add a session</h2>
           <form class="stack mt-4" novalidate>
             <div class="field">
-              <label class="label" for="addQuiz">Quiz</label>
-              <select class="select" id="addQuiz">${quizzes.map(q => `<option value="${UI.escape(q.id)}">${UI.escape(q.title)} · ${q.questions.length} questions</option>`).join('')}</select>
+              <label class="label" for="addQuiz">Questions</label>
+              <select class="select" id="addQuiz"><option value="">Write my own questions</option>${quizzes.map(q => `<option value="${UI.escape(q.id)}">${UI.escape(q.title)} · ${q.questions.length} questions</option>`).join('')}</select>
             </div>
             <div class="field">
-              <label class="label" for="addTitleInput">Session name <span class="subtle">(optional)</span></label>
-              <input class="input" id="addTitleInput" maxlength="100" placeholder="Uses the quiz title if left empty">
+              <label class="label" for="addTitleInput">Session name</label>
+              <input class="input" id="addTitleInput" maxlength="100" placeholder="e.g. Week 1 quiz">
+              <span class="hint">Optional when you pick a saved quiz.</span>
             </div>
             <fieldset class="field" style="border: 0;">
               <legend class="label mb-2">How it's played</legend>
@@ -236,15 +237,291 @@
             title: el.querySelector('#addTitleInput').value.trim(),
             mode: el.querySelector('input[name=mode]:checked').value,
           };
+          if (!body.quizId && !body.title) {
+            el.querySelector('#addTitleInput').setAttribute('aria-invalid', 'true');
+            el.querySelector('#addTitleInput').focus();
+            return UI.toast('Give the session a name.', 'error');
+          }
           try {
-            await UI.busy(el.querySelector('[type=submit]'), () => UI.api(`/api/tournaments/${encodeURIComponent(tournamentId)}/sessions`, { method: 'POST', body }));
+            const created = await UI.busy(el.querySelector('[type=submit]'), () => UI.api(`/api/tournaments/${encodeURIComponent(tournamentId)}/sessions`, { method: 'POST', body }));
             close();
             UI.toast('Session added', 'success');
-            refreshSessions();
+            await refreshSessions();
+            if (!body.quizId) editSession(created);
           } catch (err) {
             UI.toast(err.message, 'error');
           }
         };
+      },
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Session editor
+  // ---------------------------------------------------------------------------
+  const emptyQuestion = () => ({ text: '', choices: ['', '', '', ''], correctIndex: 0, timeLimitSeconds: 20, points: 1000 });
+
+  function questionCard(q, i, total, locked) {
+    const dis = locked ? 'disabled' : '';
+    return `
+      <div class="q-card" data-qi="${i}">
+        <div class="q-card-head">
+          <span class="grow">Question ${i + 1}</span>
+          <label class="q-meta">Seconds <input class="input input-sm" type="number" min="5" max="120" value="${q.timeLimitSeconds}" data-f="time" ${dis}></label>
+          <label class="q-meta">Points <input class="input input-sm" type="number" min="0" max="5000" step="100" value="${q.points}" data-f="points" ${dis}></label>
+          ${locked ? '' : `
+            <button type="button" class="btn btn-ghost btn-icon btn-sm" data-act="up" aria-label="Move question ${i + 1} up" ${i === 0 ? 'disabled' : ''}>${UI.icon('back', 'rot-up')}</button>
+            <button type="button" class="btn btn-ghost btn-icon btn-sm" data-act="down" aria-label="Move question ${i + 1} down" ${i === total - 1 ? 'disabled' : ''}>${UI.icon('back', 'rot-down')}</button>
+            <button type="button" class="btn btn-ghost btn-icon btn-sm" data-act="remove-q" aria-label="Delete question ${i + 1}">${UI.icon('trash')}</button>`}
+        </div>
+        <label class="sr-only" for="qt-${i}">Question ${i + 1} text</label>
+        <input class="input" id="qt-${i}" value="${UI.escape(q.text)}" data-f="text" maxlength="300" placeholder="Type the question" style="font-weight: 600;" ${dis}>
+        <div class="mt-2">
+          ${q.choices.map((c, ci) => `
+            <div class="choice-row ${ci === q.correctIndex ? 'is-correct' : ''}">
+              <input type="radio" name="correct-${i}" ${ci === q.correctIndex ? 'checked' : ''} data-correct="${ci}" aria-label="Mark answer ${ci + 1} as correct" ${dis}>
+              <input class="input input-sm" value="${UI.escape(c)}" data-choice="${ci}" maxlength="200" placeholder="Answer ${ci + 1}" aria-label="Answer ${ci + 1}" ${dis}>
+              ${locked ? '' : `<button type="button" class="btn btn-ghost btn-icon btn-sm" data-act="remove-c" data-ci="${ci}" aria-label="Remove answer ${ci + 1}" ${q.choices.length <= 2 ? 'disabled' : ''}>${UI.icon('x')}</button>`}
+            </div>`).join('')}
+        </div>
+        ${!locked && q.choices.length < 6 ? `<button type="button" class="btn btn-ghost btn-sm mt-2" data-act="add-c">${UI.icon('plus')}Add answer</button>` : ''}
+      </div>`;
+  }
+
+  function problemWith(draft) {
+    for (let i = 0; i < draft.questions.length; i++) {
+      const q = draft.questions[i], n = i + 1;
+      if (!q.text.trim()) return { n: i, msg: `Question ${n} has no text.` };
+      if (q.choices.some(c => !c.trim())) return { n: i, msg: `Question ${n} has an empty answer. Fill it in or remove it.` };
+      const lower = q.choices.map(c => c.trim().toLowerCase());
+      if (new Set(lower).size !== lower.length) return { n: i, msg: `Question ${n} has two identical answers.` };
+      if (q.timeLimitSeconds < 5 || q.timeLimitSeconds > 120) return { n: i, msg: `Question ${n}: time must be 5 to 120 seconds.` };
+    }
+    return null;
+  }
+
+  async function editSession(s) {
+    let data;
+    try {
+      data = await UI.api(sessionUrl(s));
+    } catch (err) {
+      return UI.toast(err.message, 'error');
+    }
+    const locked = !!data.session.questionsLocked;
+    const draft = { title: data.session.title, questions: data.questions.map(q => Object.assign({}, q, { choices: [...q.choices] })) };
+    let dirty = false;
+    const lockedWhy = data.session.status === 'Live'
+      ? 'A live game is running, so the questions are locked. End it first to change them.'
+      : 'Players have already played this session, so changing the questions would change their scores. You can still rename it.';
+
+    const handle = UI.openDialog({
+      wide: true,
+      dismissible: false,
+      labelledBy: 'editSessionTitle',
+      render(el, close) {
+        el.classList.add('dialog-editor');
+        el.innerHTML = `
+          <div class="dialog-head">
+            <h2 class="dialog-title" id="editSessionTitle">Edit session</h2>
+            <button type="button" class="btn btn-ghost btn-icon btn-sm" data-act="cancel" aria-label="Close">${UI.icon('x')}</button>
+          </div>
+          ${locked ? `<div class="callout callout-warning mb-4">${UI.icon('alert')}<div>${UI.escape(lockedWhy)}</div></div>` : ''}
+          <div class="field mb-4">
+            <label class="label" for="editName">Session name</label>
+            <input class="input" id="editName" maxlength="100" value="${UI.escape(draft.title)}">
+          </div>
+          <div class="spread mb-2">
+            <h3>Questions <span class="muted num" id="qCount"></span></h3>
+            ${locked ? '' : `<button type="button" class="btn btn-secondary btn-sm" data-act="add-q">${UI.icon('plus')}Add question</button>`}
+          </div>
+          <div id="qList"></div>
+          ${locked ? '' : `
+            <details class="format-guide mt-4">
+              <summary>Paste questions instead</summary>
+              <p class="muted mt-2" style="font-size: 0.875rem;">One question per block: <code>Q1: …</code>, answers as <code>A) …</code>, the correct one marked with <code>*</code>.</p>
+              <textarea class="textarea mono mt-2" id="pasteText" spellcheck="false" placeholder="Q1: Capital of France?&#10;A) Paris *&#10;B) Rome&#10;C) Madrid"></textarea>
+              <button type="button" class="btn btn-secondary btn-sm mt-2" data-act="import">Add these questions</button>
+            </details>`}
+          <div class="dialog-actions">
+            <button type="button" class="btn btn-secondary" data-act="cancel">Cancel</button>
+            <button type="button" class="btn btn-primary" data-act="save">Save changes</button>
+          </div>`;
+
+        const list = el.querySelector('#qList');
+        const render = () => {
+          el.querySelector('#qCount').textContent = `(${draft.questions.length})`;
+          list.innerHTML = draft.questions.length
+            ? draft.questions.map((q, i) => questionCard(q, i, draft.questions.length, locked)).join('')
+            : '<div class="empty"><p>No questions yet. Add one to get started.</p></div>';
+        };
+        render();
+
+        const qFor = node => draft.questions[Number(node.closest('[data-qi]').dataset.qi)];
+        const touch = () => { dirty = true; };
+
+        el.querySelector('#editName').addEventListener('input', touch);
+        list.addEventListener('input', e => {
+          const t = e.target, q = t.closest('[data-qi]') && qFor(t);
+          if (!q) return;
+          touch();
+          if (t.dataset.f === 'text') q.text = t.value;
+          else if (t.dataset.f === 'time') q.timeLimitSeconds = parseInt(t.value, 10) || 0;
+          else if (t.dataset.f === 'points') q.points = parseInt(t.value, 10) || 0;
+          else if (t.dataset.choice !== undefined) q.choices[Number(t.dataset.choice)] = t.value;
+          else if (t.dataset.correct !== undefined) {
+            q.correctIndex = Number(t.dataset.correct);
+            t.closest('.q-card').querySelectorAll('.choice-row').forEach((row, i) => row.classList.toggle('is-correct', i === q.correctIndex));
+          }
+        });
+
+        const addQuestion = () => {
+          draft.questions.push(emptyQuestion());
+          touch();
+          render();
+          const last = list.querySelector('.q-card:last-child [data-f="text"]');
+          last.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          last.focus();
+        };
+
+        async function importPasted() {
+          const text = el.querySelector('#pasteText').value;
+          if (!text.trim()) return UI.toast('Paste some questions first.', 'error');
+          try {
+            const r = await UI.busy(el.querySelector('[data-act="import"]'), () => UI.api('/api/quizzes/parse', { method: 'POST', body: { rawText: text, title: draft.title } }));
+            if (!r.success || !r.quiz.questions.length) {
+              return UI.toast((r.errors && r.errors[0]) || "Couldn't read any questions from that text.", 'error');
+            }
+            r.quiz.questions.forEach(q => draft.questions.push({
+              text: q.text, choices: q.choices, correctIndex: q.correctIndex ?? 0,
+              timeLimitSeconds: q.timeLimitSeconds || 20, points: q.points ?? 1000,
+            }));
+            el.querySelector('#pasteText').value = '';
+            touch();
+            render();
+            UI.toast(`Added ${r.quiz.questions.length} question${r.quiz.questions.length === 1 ? '' : 's'}`, 'success');
+          } catch (err) {
+            UI.toast(err.message, 'error');
+          }
+        }
+
+        async function cancel() {
+          if (dirty) {
+            const ok = await UI.confirm({ title: 'Discard your changes?', message: "You've edited this session but haven't saved.", confirmText: 'Discard changes', cancelText: 'Keep editing', danger: true });
+            if (!ok) return;
+          }
+          close();
+        }
+
+        async function save() {
+          draft.title = el.querySelector('#editName').value.trim();
+          if (!draft.title) {
+            el.querySelector('#editName').setAttribute('aria-invalid', 'true');
+            el.querySelector('#editName').focus();
+            return UI.toast('Give the session a name.', 'error');
+          }
+          if (!locked) {
+            const problem = problemWith(draft);
+            if (problem) {
+              const card = list.querySelectorAll('.q-card')[problem.n];
+              card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+              return UI.toast(problem.msg, 'error');
+            }
+          }
+          try {
+            await UI.busy(el.querySelector('[data-act="save"]'), () => UI.api(sessionUrl(s), {
+              method: 'PUT',
+              body: locked ? { title: draft.title } : { title: draft.title, questions: draft.questions },
+            }));
+            dirty = false;
+            close();
+            UI.toast('Session saved', 'success');
+            refreshSessions();
+          } catch (err) {
+            UI.toast(err.message, 'error');
+          }
+        }
+
+        el.addEventListener('click', e => {
+          const b = e.target.closest('[data-act]');
+          if (!b) return;
+          const act = b.dataset.act;
+          if (act === 'cancel') return cancel();
+          if (act === 'save') return save();
+          if (act === 'add-q') return addQuestion();
+          if (act === 'import') return importPasted();
+          const card = b.closest('[data-qi]');
+          if (!card) return;
+          const i = Number(card.dataset.qi), q = draft.questions[i];
+          if (act === 'up' && i > 0) draft.questions.splice(i - 1, 0, draft.questions.splice(i, 1)[0]);
+          else if (act === 'down' && i < draft.questions.length - 1) draft.questions.splice(i + 1, 0, draft.questions.splice(i, 1)[0]);
+          else if (act === 'remove-q') {
+            UI.confirm({
+              title: `Delete question ${i + 1}?`,
+              message: q.text.trim() ? `“${q.text.trim()}” will be removed from this session.` : 'This empty question will be removed.',
+              confirmText: 'Delete question', danger: true,
+            }).then(ok => { if (ok) { draft.questions.splice(i, 1); touch(); render(); } });
+            return;
+          }
+          else if (act === 'add-c' && q.choices.length < 6) q.choices.push('');
+          else if (act === 'remove-c' && q.choices.length > 2) {
+            const ci = Number(b.dataset.ci);
+            q.choices.splice(ci, 1);
+            if (q.correctIndex === ci) q.correctIndex = 0;
+            else if (q.correctIndex > ci) q.correctIndex--;
+          } else return;
+          touch();
+          render();
+          if (act === 'add-c') {
+            const inputs = list.querySelectorAll(`[data-qi="${i}"] [data-choice]`);
+            inputs[inputs.length - 1].focus();
+          }
+        });
+      },
+    });
+    // Escape asks before throwing away edits.
+    document.addEventListener('keydown', function esc(e) {
+      if (!document.body.contains(handle.el)) return document.removeEventListener('keydown', esc);
+      if (e.key === 'Escape' && !document.querySelector('.dialog-backdrop ~ .dialog-backdrop')) {
+        const x = handle.el.querySelector('[data-act="cancel"]');
+        if (x) x.click();
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Share
+  // ---------------------------------------------------------------------------
+  function shareSession(s) {
+    const code = s.livePin || s.code;
+    const live = s.mode === 'Live';
+    const link = live ? `${location.origin}/player.html?pin=${encodeURIComponent(code)}` : `${location.origin}/play.html?session=${encodeURIComponent(s.id)}`;
+
+    UI.openDialog({
+      labelledBy: 'shareTitle',
+      render(el, close) {
+        el.innerHTML = `
+          <div class="dialog-head">
+            <h2 class="dialog-title" id="shareTitle">${UI.escape(s.title)}</h2>
+            <button type="button" class="btn btn-ghost btn-icon btn-sm" data-close aria-label="Close">${UI.icon('x')}</button>
+          </div>
+          <div class="text-center">
+            <p class="muted">Players enter this code at <strong>${UI.escape(location.host)}/player.html</strong></p>
+            <div class="pin mt-2" style="font-size: 3rem;">${UI.escape(code)}</div>
+            <div class="qr-box mt-4" id="shareQr"></div>
+            <p class="subtle mt-3">${live
+              ? 'The game starts when you press Run live. Signed-in players who enter the code join the tournament automatically.'
+              : `Only players in this tournament can play it, so they need the tournament code <strong>${UI.escape(detail.joinCode || '')}</strong> first.${s.status === 'Open' ? '' : ' It isn\'t open yet.'}`}</p>
+          </div>
+          <div class="dialog-actions">
+            <button class="btn btn-secondary" data-copy-code>${UI.icon('copy')}Copy code</button>
+            <button class="btn btn-primary" data-copy-link>${UI.icon('link')}Copy link</button>
+          </div>`;
+        el.querySelector('[data-close]').onclick = () => close();
+        el.querySelector('[data-copy-code]').onclick = () => UI.copyText(code, 'Code copied');
+        el.querySelector('[data-copy-link]').onclick = () => UI.copyText(link, 'Link copied');
+        const box = el.querySelector('#shareQr');
+        if (typeof QRCode !== 'undefined') new QRCode(box, { text: link, width: 200, height: 200, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+        else box.remove();
       },
     });
   }

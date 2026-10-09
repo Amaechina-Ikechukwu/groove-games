@@ -44,9 +44,12 @@ public class GameEngineService : IGameEngineService
         int sessionNumber = 1, 
         int totalSessions = 1, 
         string sessionType = "Single",
-        string tournamentSessionId = "")
+        string tournamentSessionId = "",
+        string? preferredPin = null)
     {
-        var pin = GenerateUniquePin();
+        var pin = !string.IsNullOrWhiteSpace(preferredPin) && !_sessions.ContainsKey(preferredPin)
+            ? preferredPin
+            : GenerateUniquePin();
         var session = new GameSession
         {
             Pin = pin,
@@ -76,7 +79,8 @@ public class GameEngineService : IGameEngineService
         {
             // 6-digit numeric PIN for easy player entry
             var pin = _rng.Next(100000, 999999).ToString();
-            if (!_sessions.ContainsKey(pin))
+            // Never hand out a PIN that belongs to a tournament session's permanent code.
+            if (!_sessions.ContainsKey(pin) && !(_tournaments?.CodeInUse(pin) ?? false))
             {
                 return pin;
             }

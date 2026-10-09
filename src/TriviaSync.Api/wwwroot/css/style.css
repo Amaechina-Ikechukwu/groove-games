@@ -600,3 +600,21 @@ button.answer:active { transform: scale(.98); }
   .hide-tabbar .tabbar { display: none; }
   .hide-tabbar.has-tabbar { padding-bottom: 0; }
 }
+
+/* ==========================================================================
+   Question editor (host session editor and admin quiz editor)
+   ========================================================================== */
+.q-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; background: var(--surface); }
+.q-card + .q-card { margin-top: 12px; }
+.q-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.q-card-head .grow { white-space: nowrap; min-width: 6.5rem; font-weight: 700; font-size: 0.875rem; color: var(--text-3); letter-spacing: 0.06em; text-transform: uppercase; }
+.q-meta { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; color: var(--text-3); }
+.q-meta input { width: 78px; }
+.choice-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.choice-row input[type=radio] { width: 18px; height: 18px; accent-color: var(--lime); flex-shrink: 0; }
+.choice-row.is-correct .input { border-color: var(--lime); }
+.dialog-editor { max-width: 820px; }
+.format-guide summary { cursor: pointer; font-weight: 600; font-size: 0.9375rem; color: var(--text-2); }
+.rot-up { transform: rotate(90deg); }
+.rot-down { transform: rotate(-90deg); }
+code { font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; font-size: 0.875em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }

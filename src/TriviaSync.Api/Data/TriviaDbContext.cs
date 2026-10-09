@@ -231,6 +231,10 @@ public class TournamentSessionEntity
     [Column("live_pin")]
     public string? LivePin { get; set; }
 
+    /// <summary>Permanent 6-digit access code. Live sessions use it as their game PIN.</summary>
+    [Column("code")]
+    public string Code { get; set; } = string.Empty;
+
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
