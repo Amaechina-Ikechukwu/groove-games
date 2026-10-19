@@ -14,6 +14,7 @@ public interface IQuizClient
     Task PlayerRoundResult(object payload);
     Task LeaderboardUpdate(object payload);
     Task GameEnded(object payload);
+    Task GroupsAssigned(object payload);
     Task SessionClosed(object payload);
     Task SignInRequired(object payload);
     /// <summary>A kind of data changed for a live-update group. Clients re-fetch what they show.</summary>

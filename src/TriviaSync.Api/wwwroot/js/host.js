@@ -189,6 +189,16 @@
       return;
     }
     const body = { quizId, autoAdvance: $('autoAdvance').checked, sessionType: 'Single' };
+    if ($('groupingOn').checked) {
+      const value = parseInt($('groupingValue').value, 10);
+      const mode = $('groupingMode').value;
+      if (!(value >= (mode === 'ByCount' ? 2 : 1))) {
+        UI.toast(mode === 'ByCount' ? 'Use at least 2 groups.' : 'Use at least 1 player per group.', 'error');
+        return;
+      }
+      body.groupingMode = mode;
+      body.groupingValue = value;
+    }
 
     try {
       const data = await UI.busy($('createButton'), () => UI.api('/api/sessions', { method: 'POST', body }));
@@ -713,12 +723,31 @@
         ${p.pointsGained > 0 ? `<span class="standing-gain">+${UI.formatNumber(p.pointsGained)}</span>` : ''}
         <span class="score">${UI.formatNumber(p.score)}</span>
       </div>`).join('') : '<p class="muted">No scores yet.</p>';
+    const box = $('groupStandings');
+    const groups = data.groups || [];
+    box.hidden = !groups.length;
+    box.innerHTML = groups.map((g, i) => `
+      <div class="standing" style="animation-delay: ${i * 40}ms">
+        ${UI.rankBadge(g.rank)}
+        <div class="standing-name">${UI.escape(g.name)}
+          <div class="standing-meta">${UI.escape((g.members || []).join(', '))}</div>
+        </div>
+        <span class="score">${UI.formatNumber(g.score)}</span>
+      </div>`).join('');
     updateHud();
   }
 
   function onGameEnded(data) {
     state = 'GameEnded';
     showStage('stagePodium');
+    const win = $('winningGroup');
+    const w = data.winningGroup;
+    win.hidden = !w;
+    if (w) {
+      win.innerHTML = `<h2>${UI.escape(w.name)} wins!</h2>
+        <p class="muted">${UI.formatNumber(w.score)} combined points, added to every member's score.</p>
+        <p>${UI.escape((w.members || []).join(', '))}</p>`;
+    }
     const podium = data.podium || [];
     const order = [1, 0, 2];
     $('podium').innerHTML = order.map(i => {
@@ -757,6 +786,14 @@
 
     $('newTournament').onclick = newTournament;
     $('setupForm').addEventListener('submit', createGame);
+    const syncGrouping = () => {
+      $('groupingFields').hidden = !$('groupingOn').checked;
+      const byCount = $('groupingMode').value === 'ByCount';
+      $('groupingValueLabel').textContent = byCount ? 'How many groups?' : 'How many players in each group?';
+      $('groupingValue').min = byCount ? 2 : 1;
+    };
+    $('groupingOn').onchange = syncGrouping;
+    $('groupingMode').onchange = syncGrouping;
     // Live: tournaments (players joining, sessions opening) and running games update by themselves.
     const onSetup = () => $('viewSetup').classList.contains('is-active');
     Live.on('hosting', () => { if (onSetup()) loadTournaments(); });

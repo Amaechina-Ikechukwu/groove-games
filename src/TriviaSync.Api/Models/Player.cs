@@ -25,4 +25,10 @@ public class Player
     public int LastAnswerPoints { get; set; } = 0;
     public bool LastAnswerIsCorrect { get; set; } = false;
     public int ScoreBeforeLastAnswer { get; set; } = 0;
+
+    // Auto grouping: set when the host turned grouping on for the session.
+    public string GroupId { get; set; } = string.Empty;
+    public string GroupName { get; set; } = string.Empty;
+    /// <summary>Points added at game end from the group's collective score.</summary>
+    public int GroupBonus { get; set; } = 0;
 }

@@ -130,6 +130,20 @@
             <span>Move to the next question automatically<br><span class="subtle">When the time is up, the answer shows, then the standings, then the next question starts on its own. You can turn this off during the game.</span></span>
           </label>
 
+          <label class="check">
+            <input type="checkbox" id="groupingOn">
+            <span>Play in groups<br><span class="subtle">Players are split into groups when you start. Everyone still answers on their own, then each group's combined score is added to every member's score, and the winning group is announced.</span></span>
+          </label>
+          <div class="field" id="groupingFields" hidden>
+            <label class="label" for="groupingMode">Split by</label>
+            <select class="select" id="groupingMode">
+              <option value="ByCount">Number of groups</option>
+              <option value="BySize">Players per group</option>
+            </select>
+            <label class="label mt-2" for="groupingValue" id="groupingValueLabel">How many groups?</label>
+            <input class="input" type="number" id="groupingValue" min="2" max="20" value="2">
+          </div>
+
           <div class="card-footer" style="margin-top: 8px;">
             <button type="submit" class="btn btn-primary btn-lg" id="createButton">Start quick game</button>
           </div>
@@ -222,12 +236,14 @@
           <span class="badge" id="standingsLabel"></span>
         </div>
         <div class="standings" id="standingsList"></div>
+        <div class="standings mt-4" id="groupStandings" hidden></div>
         <p class="subtle mt-4" id="autoHint" hidden>The next question starts automatically in a few seconds.</p>
       </section>
 
       <!-- Podium -->
       <section class="game-stage" id="stagePodium">
         <h1 class="text-center mb-6">Final results</h1>
+        <div class="card text-center mb-6" id="winningGroup" hidden style="max-width: 720px; margin-left: auto; margin-right: auto;"></div>
         <div class="podium mb-6" id="podium"></div>
         <div class="card" style="max-width: 720px; margin: 0 auto;">
           <div class="spread mb-2">

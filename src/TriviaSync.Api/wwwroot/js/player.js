@@ -410,6 +410,11 @@
     }
   }
 
+  function onGroupsAssigned(data) {
+    const me = (data.groups || []).find(g => (g.members || []).includes(game && game.name));
+    if (me) UI.toast(`You're in the ${me.name}`, 'success', 6000);
+  }
+
   function onGameEnded(data) {
     const all = data.allPlayers || [];
     const me = all.find(p => game && p.fullName === game.name);
@@ -419,6 +424,12 @@
       $('summaryText').textContent = me.rank === 1
         ? `You won! First place out of ${all.length}.`
         : `You finished ${ordinal(me.rank)} out of ${all.length}.`;
+      const w = data.winningGroup;
+      if (w) {
+        const mine = me.groupName === w.name;
+        $('summaryText').textContent += ` ${w.name} won the group round${mine ? ' - that\'s your group!' : '.'}`
+          + (me.groupBonus ? ` Your group added ${UI.formatNumber(me.groupBonus)} points to your score.` : '');
+      }
     }
     try { sessionStorage.removeItem(CURRENT_GAME_KEY); } catch (_) { /* ignore */ }
     show('stageSummary');
@@ -493,6 +504,7 @@
     connection.on('RoundCompleted', () => {});
     connection.on('LeaderboardUpdate', onLeaderboardUpdate);
     connection.on('GameEnded', onGameEnded);
+    connection.on('GroupsAssigned', onGroupsAssigned);
     connection.on('PlayerKicked', d => endWith('You were removed from the game', d.message || 'The host removed you from this game.'));
     connection.on('SessionClosed', () => endWith('The host ended this game', "Thanks for playing. Games that end early don't count toward the standings."));
     connection.on('ErrorNotification', onError);

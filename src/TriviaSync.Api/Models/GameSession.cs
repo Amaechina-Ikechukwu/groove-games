@@ -24,8 +24,23 @@ public class AuditEntry
     public double? ElapsedMilliseconds { get; set; }
 }
 
+public record GroupStanding(string Id, string Name, int Score, double Average, List<string> Members, int Rank);
+
+public class PlayerGroup
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+}
+
 public class GameSession
 {
+    /// <summary>Auto grouping: "ByCount" (split into N groups) or "BySize" (N players per group). Null when off.</summary>
+    public string? GroupingMode { get; set; }
+    public int GroupingValue { get; set; }
+    public bool GroupingEnabled => GroupingMode is "ByCount" or "BySize";
+    public List<PlayerGroup> Groups { get; set; } = new();
+    public bool GroupBonusApplied { get; set; }
+
     public string Pin { get; set; } = string.Empty; // Access Code
     public string QuizId { get; set; } = string.Empty;
     public string HostId { get; set; } = string.Empty;

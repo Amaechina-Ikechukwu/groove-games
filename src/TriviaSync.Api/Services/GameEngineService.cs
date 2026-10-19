@@ -48,7 +48,9 @@ public class GameEngineService : IGameEngineService
         int totalSessions = 1, 
         string sessionType = "Single",
         string tournamentSessionId = "",
-        string? preferredPin = null)
+        string? preferredPin = null,
+        string? groupingMode = null,
+        int groupingValue = 0)
     {
         var pin = !string.IsNullOrWhiteSpace(preferredPin) && !_sessions.ContainsKey(preferredPin)
             ? preferredPin
@@ -67,6 +69,8 @@ public class GameEngineService : IGameEngineService
             TournamentSessionId = tournamentSessionId ?? string.Empty,
             Quiz = quiz,
             AutoAdvance = autoAdvance,
+            GroupingMode = (groupingMode == "ByCount" && groupingValue >= 2) || (groupingMode == "BySize" && groupingValue >= 1) ? groupingMode : null,
+            GroupingValue = groupingValue,
             State = GameState.Lobby
         };
 
@@ -212,6 +216,7 @@ public class GameEngineService : IGameEngineService
 
         if (session.Players.TryAdd(playerId, newPlayer))
         {
+            if (session.Groups.Count > 0) AssignToSmallestGroup(session, newPlayer);
             _connectionMap[connectionId] = (pin, playerId);
             _logger.LogInformation("Player joined: {FullName} in room {Pin} under Host {HostId}", fullName, pin, session.HostId);
             NotifyGames(session);
@@ -253,6 +258,11 @@ public class GameEngineService : IGameEngineService
 
         session.StartedAt = DateTime.UtcNow;
         session.CurrentQuestionIndex = -1;
+        if (session.GroupingEnabled && session.Groups.Count == 0 && !session.Players.IsEmpty)
+        {
+            AssignGroups(session);
+            await _hubContext.Clients.Group(session.Pin).GroupsAssigned(new { groups = GroupStandings(session) });
+        }
         return await AdvanceQuestionAsync(pin);
     }
 
@@ -587,7 +597,8 @@ public class GameEngineService : IGameEngineService
                     score = p.Score,
                     rank = p.Rank,
                     streak = p.CurrentStreak,
-                    pointsGained = p.LastAnswerQuestionIndex == session.CurrentQuestionIndex ? p.LastAnswerPoints : 0
+                    pointsGained = p.LastAnswerQuestionIndex == session.CurrentQuestionIndex ? p.LastAnswerPoints : 0,
+                    groupName = p.GroupName
                 })
                 .ToList();
 
@@ -596,7 +607,8 @@ public class GameEngineService : IGameEngineService
                 isRoundLeaderboard = true,
                 questionNumber = session.CurrentQuestionIndex + 1,
                 totalQuestions = session.Quiz.Questions.Count,
-                topPlayers = topPlayers
+                topPlayers = topPlayers,
+                groups = session.Groups.Count > 0 ? GroupStandings(session) : null
             });
 
             // Give players a few seconds on the standings, then move on if auto-advance is (still) on.
@@ -611,6 +623,82 @@ public class GameEngineService : IGameEngineService
                 await AdvanceQuestionAsync(session.Pin);
             }
         }
+    }
+
+    private static readonly string[] GroupNames =
+        { "Red", "Blue", "Green", "Gold", "Purple", "Orange", "Teal", "Pink", "Silver", "Black" };
+
+    /// <summary>Splits the players into balanced, shuffled groups per the host's grouping choice.</summary>
+    public static void AssignGroups(GameSession session)
+    {
+        var players = session.Players.Values.OrderBy(_ => Random.Shared.Next()).ToList();
+        if (players.Count == 0 || !session.GroupingEnabled) return;
+
+        int count = session.GroupingMode == "ByCount"
+            ? session.GroupingValue
+            : (int)Math.Ceiling(players.Count / (double)Math.Max(1, session.GroupingValue));
+        count = Math.Clamp(count, 1, players.Count);
+
+        session.Groups = Enumerable.Range(0, count).Select(i => new PlayerGroup
+        {
+            Id = $"g{i + 1}",
+            Name = i < GroupNames.Length ? $"{GroupNames[i]} group" : $"Group {i + 1}"
+        }).ToList();
+
+        for (int i = 0; i < players.Count; i++)
+        {
+            var g = session.Groups[i % count];
+            players[i].GroupId = g.Id;
+            players[i].GroupName = g.Name;
+        }
+    }
+
+    private static void AssignToSmallestGroup(GameSession session, Player player)
+    {
+        var smallest = session.Groups
+            .OrderBy(g => session.Players.Values.Count(p => p.GroupId == g.Id))
+            .First();
+        player.GroupId = smallest.Id;
+        player.GroupName = smallest.Name;
+    }
+
+    /// <summary>Groups ranked by collective score (sum of members' answer points), ties broken by average.</summary>
+    public static List<GroupStanding> GroupStandings(GameSession session)
+    {
+        var ranked = session.Groups
+            .Select(g =>
+            {
+                var members = session.Players.Values.Where(p => p.GroupId == g.Id).ToList();
+                // Once the bonus is applied, report answer points only, not the boosted score.
+                int total = members.Sum(p => p.Score - p.GroupBonus);
+                return new GroupStanding(g.Id, g.Name, total,
+                    members.Count == 0 ? 0 : Math.Round((double)total / members.Count, 1),
+                    members.OrderByDescending(p => p.Score).Select(p => p.FullName).ToList(), 0);
+            })
+            .OrderByDescending(g => g.Score)
+            .ThenByDescending(g => g.Average)
+            .ToList();
+        return ranked.Select((g, i) => g with { Rank = i + 1 }).ToList();
+    }
+
+    /// <summary>Adds each group's collective score to every member, once. Returns ranked groups, or null when grouping is off.</summary>
+    private static List<GroupStanding>? ApplyGroupBonus(GameSession session)
+    {
+        if (session.Groups.Count == 0) return null;
+        var standings = GroupStandings(session);
+        if (!session.GroupBonusApplied)
+        {
+            session.GroupBonusApplied = true;
+            foreach (var g in standings)
+            {
+                foreach (var p in session.Players.Values.Where(p => p.GroupId == g.Id))
+                {
+                    p.GroupBonus = g.Score;
+                    p.Score += g.Score;
+                }
+            }
+        }
+        return standings;
     }
 
     private static void UpdateRankings(GameSession session)
@@ -635,6 +723,7 @@ public class GameEngineService : IGameEngineService
             _live?.Publish(LiveTopics.Public, "quick");
             _live?.Publish(LiveTopics.Admin, "leaderboard");
         }
+        var groupResults = ApplyGroupBonus(session);
         UpdateRankings(session);
 
         var topPlayers = session.Players.Values
@@ -655,14 +744,18 @@ public class GameEngineService : IGameEngineService
             rank = p.Rank,
             fullName = p.FullName,
             score = p.Score,
-            streak = p.HighestStreak
+            streak = p.HighestStreak,
+            groupName = p.GroupName,
+            groupBonus = p.GroupBonus
         }).ToList();
 
         await _hubContext.Clients.Group(session.Pin).GameEnded(new
         {
             podium = podium,
             allPlayers = allPlayers,
-            totalPlayers = session.Players.Count
+            totalPlayers = session.Players.Count,
+            groups = groupResults,
+            winningGroup = groupResults?.FirstOrDefault()
         });
 
         // Persist session and update persistent player records in database

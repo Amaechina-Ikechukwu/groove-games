@@ -14,7 +14,9 @@ public interface IGameEngineService
         int totalSessions = 1, 
         string sessionType = "Single",
         string tournamentSessionId = "",
-        string? preferredPin = null);
+        string? preferredPin = null,
+        string? groupingMode = null,
+        int groupingValue = 0);
 
     GameSession? GetSession(string pin);
     List<GameSession> GetAllActiveSessions();
