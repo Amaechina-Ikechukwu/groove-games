@@ -211,6 +211,8 @@ public class QuizHub : Hub<IQuizClient>
             totalSessions = session.TotalSessions,
             sessionType = session.SessionType,
             autoAdvance = session.AutoAdvance,
+            groupingMode = session.GroupingMode,
+            groupingValue = session.GroupingValue,
             allPlayers = session.Players.Values.Where(p => p.IsConnected).Select(p => new
             {
                 playerId = p.PlayerId,
@@ -288,6 +290,21 @@ public class QuizHub : Hub<IQuizClient>
         }
 
         session.AutoAdvance = enabled;
+    }
+
+    public async Task SetGrouping(string pin, string? mode, int value)
+    {
+        var session = await GetControlledSessionAsync(pin);
+        if (session == null)
+        {
+            return;
+        }
+
+        var (ok, message) = _gameEngine.SetGrouping(session.Pin, mode, value);
+        if (!ok)
+        {
+            await Clients.Caller.ErrorNotification(message);
+        }
     }
 
     public async Task EndQuestion(string pin)

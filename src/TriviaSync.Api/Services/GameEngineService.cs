@@ -244,6 +244,30 @@ public class GameEngineService : IGameEngineService
         return (null, null);
     }
 
+    public (bool Success, string Message) SetGrouping(string pin, string? mode, int value)
+    {
+        if (!_sessions.TryGetValue(pin, out var session)) return (false, "Game not found.");
+        if (session.State != GameState.Lobby) return (false, "Groups can only be changed before the game starts.");
+
+        if (string.IsNullOrEmpty(mode))
+        {
+            session.GroupingMode = null;
+            session.GroupingValue = 0;
+        }
+        else if ((mode == "ByCount" && value >= 2) || (mode == "BySize" && value >= 1))
+        {
+            session.GroupingMode = mode;
+            session.GroupingValue = value;
+        }
+        else
+        {
+            return (false, mode == "ByCount" ? "Use at least 2 groups." : "Use at least 1 player per group.");
+        }
+
+        NotifyGames(session);
+        return (true, session.GroupingEnabled ? "Grouping on." : "Grouping off.");
+    }
+
     public async Task<bool> StartQuizAsync(string pin)
     {
         if (!_sessions.TryGetValue(pin, out var session))

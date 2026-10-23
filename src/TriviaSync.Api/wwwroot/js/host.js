@@ -583,6 +583,11 @@
     state = r.state;
     players = r.allPlayers || [];
     $('autoToggle').checked = !!r.autoAdvance;
+    $('lobbyGrouping').hidden = r.state !== 'Lobby';
+    $('lgOn').checked = !!r.groupingMode;
+    $('lgMode').value = r.groupingMode || 'ByCount';
+    $('lgValue').value = r.groupingValue || (r.groupingMode === 'BySize' ? 4 : 2);
+    syncLobbyGrouping();
     setUrl({ pin });
     showView('viewGame');
 
@@ -707,6 +712,25 @@
     updateHud();
   }
 
+  function syncLobbyGrouping() {
+    $('lgFields').hidden = !$('lgOn').checked;
+    $('lgValue').min = $('lgMode').value === 'ByCount' ? 2 : 1;
+  }
+
+  async function saveLobbyGrouping() {
+    syncLobbyGrouping();
+    const on = $('lgOn').checked;
+    const mode = on ? $('lgMode').value : null;
+    const value = on ? parseInt($('lgValue').value, 10) || 0 : 0;
+    if (on && value < (mode === 'ByCount' ? 2 : 1)) return; // wait until the number is valid
+    try {
+      await connection.invoke('SetGrouping', pin, mode, value);
+      if (room) { room.groupingMode = mode; room.groupingValue = value; }
+    } catch (_) {
+      UI.toast("Couldn't change groups. Check your connection.", 'error');
+    }
+  }
+
   function onLeaderboardUpdate(data) {
     state = 'RoundLeaderboard';
     question = Object.assign({}, question, { questionNumber: data.questionNumber, totalQuestions: data.totalQuestions });
@@ -814,6 +838,7 @@
         UI.toast("Couldn't change that. Check your connection.", 'error');
       }
     };
+    ['lgOn', 'lgMode', 'lgValue'].forEach(id => { $(id).onchange = saveLobbyGrouping; });
     $('hudQr').onclick = openQrDialog;
     $('copyLink').onclick = () => UI.copyText(joinLink(pin), 'Join link copied');
     $('exportCsv').onclick = () => exportResults('csv');

@@ -198,6 +198,20 @@
           <div class="qr-box" id="lobbyQr" aria-label="QR code to join"></div>
         </div>
 
+        <div class="card mt-6" id="lobbyGrouping">
+          <label class="check">
+            <input type="checkbox" id="lgOn">
+            <span>Play in groups<br><span class="subtle">Players are split when you start. Each group's combined score is added to every member's score.</span></span>
+          </label>
+          <div class="row-wrap mt-2" id="lgFields" hidden>
+            <select class="select" id="lgMode" aria-label="Split by">
+              <option value="ByCount">Number of groups</option>
+              <option value="BySize">Players per group</option>
+            </select>
+            <input class="input" type="number" id="lgValue" min="2" max="20" value="2" aria-label="Group setting" style="max-width: 100px;">
+          </div>
+        </div>
+
         <div class="spread mt-8 mb-4">
           <h2 style="font-size: 1.25rem;">Players <span class="muted num" id="lobbyCount">0</span></h2>
           <span class="subtle">Click × to remove someone.</span>

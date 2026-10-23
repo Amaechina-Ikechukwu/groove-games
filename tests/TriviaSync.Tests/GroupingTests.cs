@@ -89,4 +89,30 @@ public class GroupingTests
         var sizes = s.Players.Values.GroupBy(p => p.GroupId).Select(g => g.Count()).OrderBy(x => x).ToList();
         Assert.Equal(new[] { 2, 2 }, sizes);
     }
+
+    [Fact]
+    public async Task SetGrouping_CanEnableEditAndDisableInLobby_ButNotAfterStart()
+    {
+        var s = Session(4, null, 0);
+        Assert.False(s.GroupingEnabled);
+
+        Assert.True(_engine.SetGrouping(s.Pin, "BySize", 2).Success);
+        Assert.True(s.GroupingEnabled);
+        Assert.Equal(2, s.GroupingValue);
+
+        Assert.True(_engine.SetGrouping(s.Pin, "ByCount", 3).Success);
+        Assert.Equal("ByCount", s.GroupingMode);
+
+        Assert.False(_engine.SetGrouping(s.Pin, "ByCount", 1).Success);
+        Assert.Equal(3, s.GroupingValue);
+
+        Assert.True(_engine.SetGrouping(s.Pin, null, 0).Success);
+        Assert.False(s.GroupingEnabled);
+
+        _engine.SetGrouping(s.Pin, "ByCount", 2);
+        await _engine.StartQuizAsync(s.Pin);
+        Assert.Equal(2, s.Groups.Count);
+        Assert.False(_engine.SetGrouping(s.Pin, null, 0).Success);
+        Assert.True(s.GroupingEnabled);
+    }
 }
