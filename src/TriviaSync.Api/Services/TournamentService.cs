@@ -66,7 +66,8 @@ public interface ITournamentService
     List<TournamentSessionEntity> Sessions(string tournamentId);
     TournamentSessionEntity? GetSession(string sessionId);
     TournamentSessionEntity CreateSession(string tournamentId, string title, Quiz quiz, string mode);
-    TournamentSessionEntity UpdateSession(string sessionId, string title, List<Question>? questions);
+    /// <summary>Grouping is only applied when setGrouping is true, and only to a live session that has not started.</summary>
+    TournamentSessionEntity UpdateSession(string sessionId, string title, List<Question>? questions, bool setGrouping = false, string? groupingMode = null, int groupingValue = 0);
     TournamentSessionEntity? FindSessionByCode(string code);
     bool CodeInUse(string code);
     bool QuestionsLocked(TournamentSessionEntity session);
@@ -153,10 +154,13 @@ public class TournamentService : ITournamentService
                     quiz_json text NOT NULL, mode text NOT NULL, status text NOT NULL,
                     closes_at timestamp with time zone NULL, live_pin text NULL, code text NOT NULL DEFAULT '',
                     opened_at timestamp with time zone NULL, closed_at timestamp with time zone NULL,
+                    grouping_mode text NOT NULL DEFAULT '', grouping_value integer NOT NULL DEFAULT 0,
                     created_at timestamp with time zone NOT NULL);
                 ALTER TABLE tournament_sessions ADD COLUMN IF NOT EXISTS code text NOT NULL DEFAULT '';
                 ALTER TABLE tournament_sessions ADD COLUMN IF NOT EXISTS opened_at timestamp with time zone NULL;
                 ALTER TABLE tournament_sessions ADD COLUMN IF NOT EXISTS closed_at timestamp with time zone NULL;
+                ALTER TABLE tournament_sessions ADD COLUMN IF NOT EXISTS grouping_mode text NOT NULL DEFAULT '';
+                ALTER TABLE tournament_sessions ADD COLUMN IF NOT EXISTS grouping_value integer NOT NULL DEFAULT 0;
                 CREATE TABLE IF NOT EXISTS session_attempts (
                     id text PRIMARY KEY, session_id text NOT NULL, tournament_id text NOT NULL, user_email text NOT NULL,
                     display_name text NOT NULL, started_at timestamp with time zone NOT NULL, completed_at timestamp with time zone NULL,
@@ -644,7 +648,7 @@ public class TournamentService : ITournamentService
             throw TournamentException.Invalid("Add at least one question first.");
     }
 
-    public TournamentSessionEntity UpdateSession(string sessionId, string title, List<Question>? questions)
+    public TournamentSessionEntity UpdateSession(string sessionId, string title, List<Question>? questions, bool setGrouping = false, string? groupingMode = null, int groupingValue = 0)
     {
         var cleanTitle = (title ?? string.Empty).Trim();
         if (cleanTitle.Length is < 1 or > 100)
@@ -665,6 +669,27 @@ public class TournamentService : ITournamentService
                 var quiz = QuizFor(s);
                 quiz.Questions = cleaned;
                 s.QuizJson = JsonSerializer.Serialize(quiz);
+            }
+
+            if (setGrouping && s.Mode == SessionModes.Live && s.Status == SessionStatuses.Draft)
+            {
+                if (string.IsNullOrEmpty(groupingMode))
+                {
+                    s.GroupingMode = string.Empty;
+                    s.GroupingValue = 0;
+                }
+                else if ((groupingMode == "ByCount" && groupingValue is >= 2 and <= 50) ||
+                         (groupingMode == "BySize" && groupingValue is >= 1 and <= 50))
+                {
+                    s.GroupingMode = groupingMode;
+                    s.GroupingValue = groupingValue;
+                }
+                else
+                {
+                    throw TournamentException.Invalid(groupingMode == "ByCount"
+                        ? "Use between 2 and 50 groups."
+                        : "Use between 1 and 50 players per group.");
+                }
             }
 
             s.Title = cleanTitle;
