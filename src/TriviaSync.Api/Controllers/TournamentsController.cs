@@ -24,6 +24,10 @@ public class UpdateSessionRequest
     public string Title { get; set; } = string.Empty;
     /// <summary>Omit to only rename the session.</summary>
     public List<TriviaSync.Api.Models.Question>? Questions { get; set; }
+    /// <summary>Send true with GroupingMode/GroupingValue to change grouping ("ByCount", "BySize", or empty for off).</summary>
+    public bool SetGrouping { get; set; }
+    public string? GroupingMode { get; set; }
+    public int GroupingValue { get; set; }
 }
 
 public class CreateTournamentSessionRequest
@@ -137,6 +141,8 @@ public class TournamentsController : ControllerBase
             code = canManage ? s.Code : null,
             questionsLocked = canManage ? _tournaments.QuestionsLocked(s) : (bool?)null,
             mode = s.Mode,
+            groupingMode = string.IsNullOrEmpty(s.GroupingMode) ? null : s.GroupingMode,
+            groupingValue = s.GroupingValue,
             status,
             closesAt = s.ClosesAt,
             questionCount = _tournaments.QuizFor(s).Questions.Count,
@@ -377,7 +383,7 @@ public class TournamentsController : ControllerBase
     {
         var t = RequireManage(id);
         RequireSession(t, sessionId);
-        var s = _tournaments.UpdateSession(sessionId, request.Title, request.Questions);
+        var s = _tournaments.UpdateSession(sessionId, request.Title, request.Questions, request.SetGrouping, request.GroupingMode, request.GroupingValue);
         return Ok(new
         {
             session = SessionDto(t, s, true, false),
@@ -438,7 +444,9 @@ public class TournamentsController : ControllerBase
             tournamentName: t.Name,
             sessionType: "Tournament",
             tournamentSessionId: s.Id,
-            preferredPin: s.Code);
+            preferredPin: s.Code,
+            groupingMode: string.IsNullOrEmpty(s.GroupingMode) ? null : s.GroupingMode,
+            groupingValue: s.GroupingValue);
         _tournaments.SetLive(s.Id, game.Pin);
         return Ok(new { pin = game.Pin });
     }

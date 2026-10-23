@@ -350,6 +350,9 @@
     const locked = !!data.session.questionsLocked;
     const draft = { title: data.session.title, questions: data.questions.map(q => Object.assign({}, q, { choices: [...q.choices] })) };
     let dirty = false;
+    // Groups can be set while a live session has not started yet.
+    const canGroup = data.session.mode === 'Live' && data.session.status === 'Draft';
+    const grouping = { mode: data.session.groupingMode || '', value: data.session.groupingValue || 0 };
     // The time most questions already use, so the "time per question" box starts on a sensible value.
     const commonTime = (() => {
       const counts = {};
@@ -377,6 +380,20 @@
             <label class="label" for="editName">Session name</label>
             <input class="input" id="editName" maxlength="100" value="${UI.escape(draft.title)}">
           </div>
+          ${canGroup ? `
+            <div class="card card-sm mb-4">
+              <label class="check">
+                <input type="checkbox" id="editGroupOn" ${grouping.mode ? 'checked' : ''}>
+                <span>Play in groups<br><span class="subtle">Players are split into groups when the game starts. Everyone answers on their own, then each group's combined score is added to every member's score and the winning group is announced.</span></span>
+              </label>
+              <div class="row-wrap mt-2" id="editGroupFields" ${grouping.mode ? '' : 'hidden'}>
+                <select class="select" id="editGroupMode" aria-label="Split by" style="max-width: 220px;">
+                  <option value="ByCount" ${grouping.mode !== 'BySize' ? 'selected' : ''}>Number of groups</option>
+                  <option value="BySize" ${grouping.mode === 'BySize' ? 'selected' : ''}>Players per group</option>
+                </select>
+                <input class="input" id="editGroupValue" type="number" min="1" max="50" value="${grouping.value || (grouping.mode === 'BySize' ? 4 : 2)}" style="width: 100px;" inputmode="numeric" aria-label="Group setting">
+              </div>
+            </div>` : ''}
           ${locked ? '' : `
             <div class="field mb-4">
               <label class="label" for="defaultTime">Time per question</label>
@@ -424,6 +441,15 @@
         const touch = () => { dirty = true; };
 
         el.querySelector('#editName').addEventListener('input', touch);
+        if (canGroup) {
+          const on = el.querySelector('#editGroupOn'), mode = el.querySelector('#editGroupMode'), val = el.querySelector('#editGroupValue');
+          const sync = () => {
+            el.querySelector('#editGroupFields').hidden = !on.checked;
+            val.min = mode.value === 'ByCount' ? 2 : 1;
+            touch();
+          };
+          [on, mode, val].forEach(n => n.addEventListener('change', sync));
+        }
         if (el.querySelector('#pasteText')) el.querySelector('#pasteText').addEventListener('input', touch);
         list.addEventListener('input', e => {
           const t = e.target, q = t.closest('[data-qi]') && qFor(t);
@@ -541,10 +567,23 @@
               return UI.toast(problem.msg, 'error');
             }
           }
+          const body = locked ? { title: draft.title } : { title: draft.title, questions: draft.questions };
+          if (canGroup) {
+            const on = el.querySelector('#editGroupOn').checked;
+            const mode = el.querySelector('#editGroupMode').value;
+            const value = parseInt(el.querySelector('#editGroupValue').value, 10) || 0;
+            if (on && value < (mode === 'ByCount' ? 2 : 1)) {
+              el.querySelector('#editGroupValue').focus();
+              return UI.toast(mode === 'ByCount' ? 'Use at least 2 groups.' : 'Use at least 1 player per group.', 'error');
+            }
+            body.setGrouping = true;
+            body.groupingMode = on ? mode : null;
+            body.groupingValue = on ? value : 0;
+          }
           try {
             await UI.busy(el.querySelector('[data-act="save"]'), () => UI.api(sessionUrl(s), {
               method: 'PUT',
-              body: locked ? { title: draft.title } : { title: draft.title, questions: draft.questions },
+              body,
             }));
             dirty = false;
             close();

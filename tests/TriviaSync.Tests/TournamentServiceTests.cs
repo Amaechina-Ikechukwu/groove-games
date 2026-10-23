@@ -261,4 +261,27 @@ public class TournamentServiceTests
         Assert.Null(abandoned.OpenedAt);
         Assert.Null(abandoned.ClosedAt);
     }
+
+    [Fact]
+    public void UpdateSession_SetsGroupingOnADraftLiveSession_AndValidatesIt()
+    {
+        var t = _service.Create("host@test.live", "Friday league", "");
+        var live = _service.CreateSession(t.Id, "Friday 2", TwoQuestionQuiz(), SessionModes.Live);
+
+        var on = _service.UpdateSession(live.Id, "Friday 2", null, true, "BySize", 4);
+        Assert.Equal("BySize", on.GroupingMode);
+        Assert.Equal(4, on.GroupingValue);
+
+        // Leaving the grouping fields out of a plain rename keeps the saved setting.
+        Assert.Equal("BySize", _service.UpdateSession(live.Id, "Renamed", null).GroupingMode);
+
+        Assert.Throws<TournamentException>(() => _service.UpdateSession(live.Id, "Friday 2", null, true, "ByCount", 1));
+
+        var off = _service.UpdateSession(live.Id, "Friday 2", null, true, null, 0);
+        Assert.Equal(string.Empty, off.GroupingMode);
+
+        // Self-paced sessions have no live game, so grouping is ignored.
+        var paced = _service.CreateSession(t.Id, "Paced", TwoQuestionQuiz(), SessionModes.SelfPaced);
+        Assert.Equal(string.Empty, _service.UpdateSession(paced.Id, "Paced", null, true, "ByCount", 3).GroupingMode);
+    }
 }

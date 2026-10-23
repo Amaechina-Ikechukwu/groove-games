@@ -243,6 +243,13 @@ public class TournamentSessionEntity
     [Column("code")]
     public string Code { get; set; } = string.Empty;
 
+    /// <summary>Auto grouping for the live game: "ByCount", "BySize", or empty for no groups.</summary>
+    [Column("grouping_mode")]
+    public string GroupingMode { get; set; } = string.Empty;
+
+    [Column("grouping_value")]
+    public int GroupingValue { get; set; }
+
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
