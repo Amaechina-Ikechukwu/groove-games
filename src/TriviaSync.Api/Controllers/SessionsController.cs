@@ -16,6 +16,9 @@ public class CreateSessionRequest
     public string SessionType { get; set; } = "Single"; // "Single" or "MultiSession"
     public int SessionCount { get; set; } = 1;
     public bool AutoAdvance { get; set; } = true;
+    /// <summary>Auto grouping: "ByCount" or "BySize"; omit to play without groups.</summary>
+    public string? GroupingMode { get; set; }
+    public int GroupingValue { get; set; }
 }
 
 public class SessionSummaryDto
@@ -169,7 +172,9 @@ public class SessionsController : ControllerBase
             tournamentName: string.IsNullOrWhiteSpace(request.TournamentName) ? singleQuiz.Title : tournamentName,
             sessionNumber: 1,
             totalSessions: 1,
-            sessionType: "Single"
+            sessionType: "Single",
+            groupingMode: request.GroupingMode,
+            groupingValue: request.GroupingValue
         );
 
         return Ok(new
