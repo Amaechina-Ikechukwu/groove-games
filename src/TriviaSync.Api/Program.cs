@@ -164,8 +164,40 @@ if (app.Environment.IsDevelopment() || true)
 // Health check endpoint for Docker & Dokploy
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", db = "postgresql", timestamp = DateTime.UtcNow }));
 
+// Search engines: robots.txt and a sitemap of the public pages
+app.MapGet("/robots.txt", (HttpContext ctx) => Results.Text(
+    $"User-agent: *\nDisallow: /api/\nDisallow: /hubs/\nDisallow: /swagger/\n\nSitemap: {SiteUrl(ctx)}/sitemap.xml\n",
+    "text/plain"));
+
+app.MapGet("/sitemap.xml", (HttpContext ctx) =>
+{
+    var site = SiteUrl(ctx);
+    var urls = string.Concat(new[] { "/", "/player.html", "/leaderboard.html" }
+        .Select(p => $"  <url><loc>{site}{p}</loc></url>\n"));
+    return Results.Text(
+        $"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n{urls}</urlset>\n",
+        "application/xml");
+});
+
 // Serve static frontend files (player.html, host.html, admin.html, index.html)
 app.UseDefaultFiles();
+
+// HTML pages carry {{SITE_URL}} for canonical and social-share links, filled in per request
+app.Use(async (ctx, next) =>
+{
+    var path = ctx.Request.Path.Value;
+    if (HttpMethods.IsGet(ctx.Request.Method) && path != null && path.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+    {
+        var file = app.Environment.WebRootFileProvider.GetFileInfo(path);
+        if (file.Exists && !file.IsDirectory)
+        {
+            await WriteHtmlPage(ctx, file);
+            return;
+        }
+    }
+    await next();
+});
+
 app.UseStaticFiles();
 
 app.UseRouting();
@@ -177,9 +209,28 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHub<QuizHub>("/hubs/game");
 
-app.MapFallbackToFile("index.html");
+app.MapFallback(ctx => WriteHtmlPage(ctx, app.Environment.WebRootFileProvider.GetFileInfo("index.html")));
 
 app.Run();
+
+// Public address of the site. Set Seo__SiteUrl in production (e.g. https://groove.example.com);
+// otherwise it's taken from the request, honouring the proxy's X-Forwarded-Proto.
+string SiteUrl(HttpContext ctx)
+{
+    var configured = app.Configuration["Seo:SiteUrl"];
+    if (!string.IsNullOrWhiteSpace(configured)) return configured.TrimEnd('/');
+    var scheme = ctx.Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? ctx.Request.Scheme;
+    return $"{scheme}://{ctx.Request.Host}";
+}
+
+async Task WriteHtmlPage(HttpContext ctx, Microsoft.Extensions.FileProviders.IFileInfo file)
+{
+    using var reader = new StreamReader(file.CreateReadStream());
+    var html = (await reader.ReadToEndAsync()).Replace("{{SITE_URL}}", SiteUrl(ctx));
+    ctx.Response.ContentType = "text/html; charset=utf-8";
+    ctx.Response.Headers.CacheControl = "no-cache";
+    await ctx.Response.WriteAsync(html);
+}
 
 static void SeedAccounts(WebApplication app)
 {

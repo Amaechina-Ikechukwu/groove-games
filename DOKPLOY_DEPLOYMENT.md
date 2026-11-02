@@ -146,6 +146,7 @@ Set these in Dokploy's **Environment** tab before the first deploy:
 | `Jwt__Key` | Secret used to sign sign-in tokens. Use a long random value (32+ characters), e.g. `openssl rand -base64 48`. If it's missing, the app generates a random key on each start and everyone is signed out on restart. |
 | `Admin__Email` | Email of the first admin account. Created on startup if it doesn't exist. |
 | `Admin__Password` | Password for that account. You can remove both variables after the first start. |
+| `Seo__SiteUrl` | Optional. Your public address, e.g. `https://groove.yourdomain.com`, used for canonical links, the sitemap and link previews. Without it the address is taken from each request. |
 
 There are no built-in default accounts in production. The demo accounts (`admin@groove.live` etc.) exist only when `ASPNETCORE_ENVIRONMENT=Development`.
 

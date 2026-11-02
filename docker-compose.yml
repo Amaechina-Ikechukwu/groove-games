@@ -22,6 +22,9 @@ services:
       - Admin__Password=${GROOVE_ADMIN_PASSWORD}
       - Jwt__Issuer=Groove
       - Jwt__Audience=GrooveClients
+      # Optional: public address used in the sitemap and share links, e.g. https://groove.example.com.
+      # Without it the address is taken from each request.
+      - Seo__SiteUrl=${GROOVE_SITE_URL:-}
 
 volumes:
   groove_data:
